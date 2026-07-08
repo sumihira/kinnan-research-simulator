@@ -1,0 +1,9 @@
+strategy: balanced
+
+games: 100000
+
+save_replay: false
+
+enable_logs: false
+
+threads: auto

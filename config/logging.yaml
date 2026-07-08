@@ -1,0 +1,7 @@
+level: INFO
+
+save_replay: true
+
+save_json: true
+
+save_csv: false

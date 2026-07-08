@@ -1,0 +1,7 @@
+name: ShangChiTest
+weights:
+  mana: 0.8
+  combo: 3.5
+  tutor: 3.0
+  board: 1.2
+  chain: 4.0
