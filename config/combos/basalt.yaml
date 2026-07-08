@@ -1,0 +1,17 @@
+name: Basalt Monolith Infinite Mana
+
+requires:
+  - Kinnan, Bonder Prodigy
+  - Basalt Monolith
+
+start_condition:
+  battlefield:
+    - Kinnan, Bonder Prodigy
+    - Basalt Monolith
+
+loop:
+  mana_gain: 1
+  repeatable: true
+
+result:
+  infinite_mana: true
