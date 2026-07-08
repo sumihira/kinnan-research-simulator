@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.vscode/
+.idea/
+
+*.pyc
+*.log
+
+data/cache/
+data/logs/
+data/replay/
+
+dist/
+build/
