@@ -1,0 +1,13 @@
+{
+  "experiment_id": "EXP-0001",
+  "deck_name": "Current Kinnan",
+  "deck_hash": "...",
+  "strategy": "balanced",
+  "preset": "goldfish",
+  "games": 100000,
+  "seed": 123456,
+  "git_commit": "abc1234",
+  "start_time": "...",
+  "end_time": "...",
+  "version": "1.0.0"
+}
