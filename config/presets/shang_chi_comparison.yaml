@@ -1,0 +1,7 @@
+name: shang_chi_comparison
+
+games: 100000
+strategy: balanced
+save_replays: failures_only
+parallel_workers: auto
+max_turns: 6

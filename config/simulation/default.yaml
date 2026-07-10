@@ -1,0 +1,6 @@
+games: 1000
+max_turns: 6
+parallel_workers: 1
+seed: null
+mulligan: true
+save_replays: false
