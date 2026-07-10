@@ -1,0 +1,11 @@
+statistics:
+  mana_curve: true
+  combo_rate: true
+  activation_rate: true
+
+graph:
+  png: true
+  csv: true
+
+log:
+  enabled: false

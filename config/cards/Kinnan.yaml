@@ -1,3 +1,15 @@
-mana_ability_modifier:
-  additional_mana: 1
-  applies_to: nonland_permanents
+strategy:
+  priority:
+    - Cast Kinnan
+    - Cast Mana Rock
+    - Activate Kinnan
+
+combo:
+  prefer:
+    - Basalt Monolith
+    - Hullbreaker Horror
+
+evaluation:
+  weight:
+    mana: 1.5
+    combo: 2.0

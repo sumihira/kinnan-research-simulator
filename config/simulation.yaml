@@ -1,5 +1,0 @@
-games: 100000
-threads: 16
-seed: null
-enable_replay: true
-save_logs: false
