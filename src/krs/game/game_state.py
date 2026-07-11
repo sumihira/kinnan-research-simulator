@@ -14,6 +14,8 @@ class GameState:
     phase: Phase = Phase.UNTAP
     active_player_index: int = 0
 
+    started: bool = False
+
     stack_size: int = 0
 
     game_over: bool = False
