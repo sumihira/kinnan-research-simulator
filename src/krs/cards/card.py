@@ -24,3 +24,4 @@ class Card:
     toughness: int | None = None
 
     mana_abilities: tuple[ManaAbility, ...] = ()
+    keywords: tuple[str, ...] = ()

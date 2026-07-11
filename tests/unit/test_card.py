@@ -82,3 +82,24 @@ def test_card_rejects_undefined_attributes() -> None:
 
     with pytest.raises((AttributeError, FrozenInstanceError)):
         card.new_attribute = "invalid"  # type: ignore[attr-defined]
+
+def test_card_keywords_default_to_empty_tuple() -> None:
+    card = create_kinnan()
+
+    assert card.keywords == ()
+
+
+def test_card_can_store_keywords() -> None:
+    card = Card(
+        id="mana-dork-id",
+        name="Hasty Mana Dork",
+        mana_cost="{G}",
+        mana_value=1,
+        oracle_text="Haste",
+        type_line="Creature — Elf Druid",
+        power=1,
+        toughness=1,
+        keywords=("Haste",),
+    )
+
+    assert card.keywords == ("Haste",)

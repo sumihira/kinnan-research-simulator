@@ -228,3 +228,85 @@ def test_noncreature_has_no_creature_types() -> None:
     )
 
     assert permanent.creature_types == set()
+
+def test_noncreature_can_activate_tap_ability_while_new() -> None:
+    card = Card(
+        id="sol-ring-id",
+        name="Sol Ring",
+        mana_cost="{1}",
+        mana_value=1,
+        oracle_text="{T}: Add {C}{C}.",
+        type_line="Artifact",
+    )
+
+    permanent = Permanent(
+        permanent_id=1,
+        card=card,
+        owner_id=0,
+        controller_id=0,
+        summoning_sick=True,
+    )
+
+    assert permanent.can_activate_tap_ability is True
+
+
+def test_summoning_sick_creature_cannot_activate_tap_ability() -> None:
+    permanent = Permanent(
+        permanent_id=1,
+        card=create_kinnan(),
+        owner_id=0,
+        controller_id=0,
+        summoning_sick=True,
+    )
+
+    assert permanent.can_activate_tap_ability is False
+
+
+def test_creature_without_summoning_sickness_can_activate_tap_ability() -> None:
+    permanent = Permanent(
+        permanent_id=1,
+        card=create_kinnan(),
+        owner_id=0,
+        controller_id=0,
+        summoning_sick=False,
+    )
+
+    assert permanent.can_activate_tap_ability is True
+
+
+def test_haste_allows_summoning_sick_creature_to_activate_tap_ability() -> None:
+    card = Card(
+        id="hasty-creature-id",
+        name="Hasty Mana Creature",
+        mana_cost="{G}",
+        mana_value=1,
+        oracle_text="Haste",
+        type_line="Creature — Elf Druid",
+        power=1,
+        toughness=1,
+        keywords=("Haste",),
+    )
+
+    permanent = Permanent(
+        permanent_id=1,
+        card=card,
+        owner_id=0,
+        controller_id=0,
+        summoning_sick=True,
+    )
+
+    assert permanent.has_haste is True
+    assert permanent.can_activate_tap_ability is True
+
+
+def test_as_though_haste_permission_allows_tap_ability() -> None:
+    permanent = Permanent(
+        permanent_id=1,
+        card=create_kinnan(),
+        owner_id=0,
+        controller_id=0,
+        summoning_sick=True,
+        can_activate_tap_abilities_as_though_haste=True,
+    )
+
+    assert permanent.can_activate_tap_ability is True

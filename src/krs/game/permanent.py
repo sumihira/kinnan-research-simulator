@@ -25,16 +25,12 @@ class Permanent:
     entered_turn: int = 0
 
     counters: dict[str, int] = field(default_factory=dict)
-
     chosen_values: dict[str, str] = field(default_factory=dict)
+
+    can_activate_tap_abilities_as_though_haste: bool = False
 
     @property
     def effective_card(self) -> Card:
-        """
-        Return the characteristics copied by this permanent.
-
-        The printed card remains available through `card`.
-        """
         return self.copied_from or self.card
 
     @property
@@ -61,11 +57,6 @@ class Permanent:
 
     @property
     def creature_types(self) -> set[str]:
-        """
-        Return this permanent's creature subtypes.
-
-        Noncreature permanents return an empty set.
-        """
         if not self.is_creature:
             return set()
 
@@ -80,3 +71,28 @@ class Permanent:
         )[1]
 
         return set(subtype_part.split())
+
+    @property
+    def has_haste(self) -> bool:
+        return any(
+            keyword.casefold() == "haste"
+            for keyword in self.effective_card.keywords
+        )
+
+    @property
+    def can_activate_tap_ability(self) -> bool:
+        """
+        Return whether this permanent may activate a tap ability.
+
+        Summoning sickness only restricts creatures.
+        """
+        if not self.is_creature:
+            return True
+
+        if not self.summoning_sick:
+            return True
+
+        if self.has_haste:
+            return True
+
+        return self.can_activate_tap_abilities_as_though_haste

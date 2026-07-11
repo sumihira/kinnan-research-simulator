@@ -267,6 +267,15 @@ class ActionExecutor:
                 f"{permanent.effective_card.name}"
             )
 
+        if (
+            permanent.is_creature
+            and not permanent.can_activate_tap_ability
+        ):
+            raise ValueError(
+                "Summoning-sick creature cannot activate "
+                f"a tap ability: {permanent.effective_card.name}"
+            )
+
         if permanent.is_land:
             produced_mana = {
                 self._resolve_basic_land_mana(
