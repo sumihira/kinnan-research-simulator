@@ -283,3 +283,141 @@ def test_turn_operations_reject_finished_game() -> None:
         match="Game has already finished",
     ):
         GameEngine().start_turn(state)
+
+    def test_entering_draw_phase_draws_one_card() -> None:
+        state = create_running_state(
+            phase=Phase.UPKEEP,
+        )
+        player = state.players[0]
+
+        top_card = create_card(
+            card_id="forest-id",
+            name="Forest",
+        type_line="Basic Land — Forest",
+        )
+        second_card = create_card(
+            card_id="island-id",
+            name="Island",
+            type_line="Basic Land — Island",
+        )
+
+        player.library.cards.extend(
+            [
+                top_card,
+                second_card,
+            ]
+        )
+
+        GameEngine().advance_phase(state)
+
+        assert state.phase is Phase.DRAW
+        assert list(player.hand) == [top_card]
+        assert list(player.library) == [second_card]
+
+    def test_draw_step_increments_action_count() -> None:
+        state = create_running_state(
+            phase=Phase.UPKEEP,
+        )
+        player = state.players[0]
+
+        player.library.cards.append(
+            create_card(
+                card_id="forest-id",
+                name="Forest",
+                type_line="Basic Land — Forest",
+            )
+        )
+
+        GameEngine().advance_phase(state)
+
+        assert state.action_count == 1
+
+    def test_draw_step_draws_for_active_player_only() -> None:
+        first = Player(player_id=0)
+        second = Player(player_id=1)
+
+        first.library.cards.append(
+            create_card(
+                card_id="forest-id",
+                name="Forest",
+                type_line="Basic Land — Forest",
+            )
+        )
+        second.library.cards.append(
+            create_card(
+                card_id="island-id",
+                name="Island",
+                type_line="Basic Land — Island",
+            )
+        )
+
+        state = GameState(
+            players=[first, second],
+            started=True,
+            phase=Phase.UPKEEP,
+            active_player_index=1,
+        )
+
+        GameEngine().advance_phase(state)
+
+        assert len(first.hand) == 0
+        assert [card.name for card in second.hand] == ["Island"]
+        assert len(first.library) == 1
+        assert len(second.library) == 0
+
+    def test_entering_non_draw_phase_does_not_draw() -> None:
+        state = create_running_state(
+            phase=Phase.UNTAP,
+        )
+        player = state.players[0]
+
+        player.library.cards.append(
+            create_card(
+                card_id="forest-id",
+                name="Forest",
+                type_line="Basic Land — Forest",
+            )
+        )
+
+        GameEngine().advance_phase(state)
+
+        assert state.phase is Phase.UPKEEP
+        assert len(player.hand) == 0
+        assert len(player.library) == 1
+        assert state.action_count == 0
+
+    def test_draw_step_from_empty_library_raises_error() -> None:
+        state = create_running_state(
+            phase=Phase.UPKEEP,
+        )
+
+        with pytest.raises(
+            IndexError,
+            match="Cannot draw from an empty library",
+        ):
+            GameEngine().advance_phase(state)
+
+        assert state.phase is Phase.DRAW
+        assert state.action_count == 0
+        assert len(state.players[0].hand) == 0
+
+    def test_first_turn_draw_step_draws_one_card() -> None:
+        state = create_running_state(
+            turn_number=1,
+            phase=Phase.UPKEEP,
+        )
+        player = state.players[0]
+
+        player.library.cards.append(
+            create_card(
+                card_id="forest-id",
+                name="Forest",
+                type_line="Basic Land — Forest",
+            )
+        )
+
+        GameEngine().advance_phase(state)
+
+        assert state.turn_number == 1
+        assert state.phase is Phase.DRAW
+        assert len(player.hand) == 1

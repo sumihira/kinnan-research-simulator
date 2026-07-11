@@ -122,6 +122,9 @@ class GameEngine:
     def advance_phase(self, state: GameState) -> None:
         """
         Advance to the next phase in the current turn.
+
+        Entering the draw phase automatically draws one card
+        for the active player.
         """
         self._validate_running_game(state)
 
@@ -130,8 +133,38 @@ class GameEngine:
                 "Cannot advance beyond END phase. Start a new turn instead."
             )
 
-        state.phase = Turn.next_phase(state.phase)
+        next_phase = Turn.next_phase(state.phase)
+        state.phase = next_phase
 
+        self._handle_phase_entry(state)
+
+    def _handle_phase_entry(self, state: GameState) -> None:
+        """
+        Execute automatic processing that occurs when entering a phase.
+        """
+        if state.phase is Phase.DRAW:
+            self._execute_draw_step(state)
+
+
+    def _execute_draw_step(self, state: GameState) -> None:
+        """
+        Draw one card for the active player during the draw step.
+
+        Version 1 draws one card on every turn, including turn one.
+        """
+        player = state.active_player
+
+        if player is None:
+            raise ValueError("Active player could not be resolved.")
+
+        self._action_executor.execute(
+            state,
+            DrawAction(
+                player_id=player.player_id,
+                turn_number=state.turn_number,
+                amount=1,
+            ),
+        )
 
     def end_turn(self, state: GameState) -> None:
         """
