@@ -30,3 +30,30 @@ class Permanent:
 
     # カウンター
     counters: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def effective_card(self) -> Card:
+        """
+        Return the copied characteristics when this permanent is a copy.
+
+        The original printed card remains available through `card`.
+        """
+        return self.copied_from or self.card
+
+    @property
+    def is_land(self) -> bool:
+        type_part = self.effective_card.type_line.split(
+            " — ",
+            maxsplit=1,
+        )[0]
+
+        return "Land" in type_part.split()
+
+    @property
+    def is_creature(self) -> bool:
+        type_part = self.effective_card.type_line.split(
+            " — ",
+            maxsplit=1,
+        )[0]
+
+        return "Creature" in type_part.split()

@@ -11,7 +11,8 @@ from krs.game.player import Player
 from krs.actions.play_land import PlayLandAction
 from krs.game.permanent import Permanent
 from krs.game.phase import Phase
-
+from krs.actions.tap_permanent import TapPermanentAction
+from krs.mana.mana import Mana
 class ActionExecutor:
     """
     Applies Action objects to GameState.
@@ -40,6 +41,10 @@ class ActionExecutor:
 
         if isinstance(action, PlayLandAction):
             self._execute_play_land(state, action)
+            return
+
+        if isinstance(action, TapPermanentAction):
+            self._execute_tap_permanent(state, action)
             return
 
         raise NotImplementedError(
@@ -222,3 +227,108 @@ class ActionExecutor:
         card_types = card.type_line.split(" — ", maxsplit=1)[0].split()
 
         return "Land" in card_types
+
+    def _execute_tap_permanent(
+        self,
+        state: GameState,
+        action: TapPermanentAction,
+    ) -> None:
+        player = self._get_player(state, action.player_id)
+
+        if not state.started:
+            raise ValueError(
+                "Cannot activate a mana ability before the game starts."
+            )
+
+        if state.game_over:
+            raise ValueError(
+                "Cannot activate a mana ability in a finished game."
+            )
+
+        permanent = self._find_permanent_on_battlefield(
+            player=player,
+            permanent_id=action.permanent.permanent_id,
+        )
+
+        if permanent.tapped:
+            raise ValueError(
+                f"Permanent is already tapped: "
+                f"{permanent.effective_card.name}"
+            )
+
+        if permanent.controller_id != player.player_id:
+            raise ValueError(
+                "Player does not control this permanent."
+            )
+
+        produced_mana = self._resolve_basic_land_mana(
+            permanent=permanent,
+            selected_mana=action.mana,
+        )
+
+        permanent.tapped = True
+        player.mana_pool.add(produced_mana)
+
+        state.mana_generated += 1
+        state.action_count += 1
+
+    @staticmethod
+    def _find_permanent_on_battlefield(
+        player: Player,
+        permanent_id: int,
+    ) -> Permanent:
+        for permanent in player.battlefield:
+            if permanent.permanent_id == permanent_id:
+                return permanent
+
+        raise ValueError(
+            f"Permanent not found on battlefield: {permanent_id}"
+        )
+
+    @staticmethod
+    def _resolve_basic_land_mana(
+        permanent: Permanent,
+        selected_mana: Mana,
+    ) -> Mana:
+        if not permanent.is_land:
+            raise ValueError(
+                f"Permanent is not a land: "
+                f"{permanent.effective_card.name}"
+            )
+
+        subtype_part = (
+            permanent.effective_card.type_line.split(
+                " — ",
+                maxsplit=1,
+            )[1]
+            if " — " in permanent.effective_card.type_line
+            else ""
+        )
+
+        basic_land_mana = {
+            "Plains": Mana.WHITE,
+            "Island": Mana.BLUE,
+            "Swamp": Mana.BLACK,
+            "Mountain": Mana.RED,
+            "Forest": Mana.GREEN,
+        }
+
+        available_mana = {
+            mana
+            for subtype, mana in basic_land_mana.items()
+            if subtype in subtype_part.split()
+        }
+
+        if not available_mana:
+            raise ValueError(
+                "Land has no supported mana ability: "
+                f"{permanent.effective_card.name}"
+            )
+
+        if selected_mana not in available_mana:
+            raise ValueError(
+                f"Land cannot produce selected mana: "
+                f"{selected_mana}"
+            )
+
+        return selected_mana

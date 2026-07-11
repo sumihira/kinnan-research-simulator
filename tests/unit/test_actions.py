@@ -12,6 +12,7 @@ from krs.actions.tap_permanent import TapPermanentAction
 from krs.cards.card import Card
 from krs.game.permanent import Permanent
 from krs.mana.mana_cost import ManaCost
+from krs.mana.mana import Mana
 
 
 def create_card(
@@ -137,16 +138,18 @@ def test_activate_ability_action_defaults_to_first_ability() -> None:
     assert action.ability_index == 0
 
 
-def test_tap_permanent_action_stores_permanent() -> None:
+def test_tap_permanent_action_stores_permanent_and_mana() -> None:
     permanent = create_permanent()
 
     action = TapPermanentAction(
         player_id=0,
         turn_number=2,
         permanent=permanent,
+        mana=Mana.BLUE,
     )
 
     assert action.permanent is permanent
+    assert action.mana is Mana.BLUE
 
 
 def test_pass_priority_action_can_be_created() -> None:
