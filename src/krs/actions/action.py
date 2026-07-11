@@ -5,14 +5,12 @@ from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class Action(ABC):
     """
-    Base class for all game actions.
+    Immutable description of a game action.
 
-    Action objects are immutable.
-    They describe what a player intends to do.
-    GameEngine is responsible for executing them.
+    GameEngine is responsible for applying the action to GameState.
     """
 
     player_id: int
