@@ -13,6 +13,8 @@ from krs.game.permanent import Permanent
 from krs.game.phase import Phase
 from krs.actions.tap_permanent import TapPermanentAction
 from krs.mana.mana import Mana
+from krs.abilities.mana_ability import ManaAbility
+
 class ActionExecutor:
     """
     Applies Action objects to GameState.
@@ -250,26 +252,39 @@ class ActionExecutor:
             permanent_id=action.permanent.permanent_id,
         )
 
+        if permanent.controller_id != player.player_id:
+            raise ValueError(
+                "Player does not control this permanent."
+            )
+
         if permanent.tapped:
             raise ValueError(
                 f"Permanent is already tapped: "
                 f"{permanent.effective_card.name}"
             )
 
-        if permanent.controller_id != player.player_id:
-            raise ValueError(
-                "Player does not control this permanent."
+        if permanent.is_land:
+            produced_mana = {
+                self._resolve_basic_land_mana(
+                    permanent=permanent,
+                    selected_mana=action.mana,
+                ): 1
+            }
+        else:
+            produced_mana = self._resolve_nonland_mana_ability(
+                permanent=permanent,
+                selected_mana=action.mana,
+                ability_index=action.ability_index,
             )
 
-        produced_mana = self._resolve_basic_land_mana(
-            permanent=permanent,
-            selected_mana=action.mana,
-        )
-
         permanent.tapped = True
-        player.mana_pool.add(produced_mana)
 
-        state.mana_generated += 1
+        for mana, amount in produced_mana.items():
+            player.mana_pool.add(mana, amount)
+
+        amount_generated = sum(produced_mana.values())
+
+        state.mana_generated += amount_generated
         state.action_count += 1
 
     @staticmethod
@@ -332,3 +347,37 @@ class ActionExecutor:
             )
 
         return selected_mana
+    
+    @staticmethod
+    def _resolve_nonland_mana_ability(
+        permanent: Permanent,
+        selected_mana: Mana,
+        ability_index: int,
+    ) -> dict[Mana, int]:
+        card = permanent.effective_card
+
+        if not 0 <= ability_index < len(card.mana_abilities):
+            raise ValueError(
+                f"Mana ability not found at index "
+                f"{ability_index}: {card.name}"
+            )
+
+        ability: ManaAbility = card.mana_abilities[
+            ability_index
+        ]
+
+        if not ability.requires_tap:
+            raise ValueError(
+                "The selected mana ability does not require tapping."
+            )
+
+        if not ability.can_produce(selected_mana):
+            raise ValueError(
+                f"Mana ability cannot produce selected mana: "
+                f"{selected_mana}"
+            )
+
+        # Version 1では、選択した種類の固定マナをすべて生成する。
+        return {
+            selected_mana: ability.produced_mana[selected_mana]
+        }

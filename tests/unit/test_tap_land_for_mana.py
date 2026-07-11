@@ -151,7 +151,7 @@ def test_land_cannot_produce_wrong_color() -> None:
     assert state.action_count == 0
 
 
-def test_nonland_cannot_use_basic_land_mana_processing() -> None:
+def test_nonland_without_mana_ability_is_rejected() -> None:
     state = create_running_state()
     player = state.players[0]
 
@@ -170,7 +170,7 @@ def test_nonland_cannot_use_basic_land_mana_processing() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Permanent is not a land: Sol Ring",
+        match="Mana ability not found at index 0: Sol Ring",
     ):
         ActionExecutor().execute(
             state,
@@ -184,6 +184,8 @@ def test_nonland_cannot_use_basic_land_mana_processing() -> None:
 
     assert sol_ring.tapped is False
     assert player.mana_pool.total() == 0
+    assert state.mana_generated == 0
+    assert state.action_count == 0
 
 
 def test_land_not_on_battlefield_cannot_be_tapped() -> None:

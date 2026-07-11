@@ -161,3 +161,30 @@ def test_pass_priority_action_can_be_created() -> None:
     assert action.player_id == 0
     assert action.turn_number == 3
     assert isinstance(action.action_id, UUID)
+
+def test_tap_permanent_action_stores_values() -> None:
+    permanent = create_permanent()
+
+    action = TapPermanentAction(
+        player_id=0,
+        turn_number=2,
+        permanent=permanent,
+        mana=Mana.COLORLESS,
+        ability_index=1,
+    )
+
+    assert action.permanent is permanent
+    assert action.mana is Mana.COLORLESS
+    assert action.ability_index == 1
+
+def test_tap_permanent_action_defaults_to_first_ability() -> None:
+    permanent = create_permanent()
+
+    action = TapPermanentAction(
+        player_id=0,
+        turn_number=2,
+        permanent=permanent,
+        mana=Mana.COLORLESS,
+    )
+
+    assert action.ability_index == 0
