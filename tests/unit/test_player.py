@@ -69,3 +69,8 @@ def test_player_name_can_be_changed() -> None:
     )
 
     assert player.name == "Junpei"
+
+def test_player_starts_with_zero_mulligans() -> None:
+    player = Player(player_id=0)
+
+    assert player.mulligan_count == 0
