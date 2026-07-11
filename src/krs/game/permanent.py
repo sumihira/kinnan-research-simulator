@@ -57,3 +57,7 @@ class Permanent:
         )[0]
 
         return "Creature" in type_part.split()
+    
+    @property
+    def is_nonland(self) -> bool:
+        return not self.is_land
