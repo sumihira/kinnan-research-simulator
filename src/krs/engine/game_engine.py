@@ -5,7 +5,8 @@ import random
 from krs.actions.draw import DrawAction
 from krs.engine.action_executor import ActionExecutor
 from krs.game.game_state import GameState
-
+from krs.game.phase import Phase
+from krs.game.turn import Turn
 
 class GameEngine:
     """
@@ -90,3 +91,161 @@ class GameEngine:
         derived_seed = experiment_seed + player_id
 
         return random.Random(derived_seed)
+
+    def start_turn(self, state: GameState) -> None:
+        """
+        Start the active player's turn.
+
+        Resets turn-specific player state, untaps permanents,
+        and removes summoning sickness from permanents that
+        entered before the current turn.
+        """
+        self._validate_running_game(state)
+
+        player = state.active_player
+
+        if player is None:
+            raise ValueError("Active player could not be resolved.")
+
+        state.phase = Phase.UNTAP
+
+        player.land_played_this_turn = 0
+        player.mana_pool.clear()
+
+        for permanent in player.battlefield:
+            permanent.tapped = False
+
+            if permanent.entered_turn < state.turn_number:
+                permanent.summoning_sick = False
+
+
+    def advance_phase(self, state: GameState) -> None:
+        """
+        Advance to the next phase in the current turn.
+        """
+        self._validate_running_game(state)
+
+        if state.phase is Phase.END:
+            raise ValueError(
+                "Cannot advance beyond END phase. Start a new turn instead."
+            )
+
+        state.phase = Turn.next_phase(state.phase)
+
+
+    def end_turn(self, state: GameState) -> None:
+        """
+        End the current turn and begin the next turn.
+
+        Version 1 uses one active player, but active_player_index
+        is still advanced for future multiplayer support.
+        """
+        self._validate_running_game(state)
+
+        if state.phase is not Phase.END:
+            raise ValueError(
+                "A turn can only end during the END phase."
+            )
+
+        for player in state.players:
+            player.mana_pool.clear()
+
+        state.turn_number += 1
+
+        if state.players:
+            state.active_player_index = (
+                state.active_player_index + 1
+            ) % len(state.players)
+
+        self.start_turn(state)
+
+
+    @staticmethod
+    def _validate_running_game(state: GameState) -> None:
+        if not state.started:
+            raise ValueError("Game has not started.")
+
+        if state.game_over:
+            raise ValueError("Game has already finished.")
+
+        if not state.players:
+            raise ValueError("Game has no players.")
+    
+    def start_turn(self, state: GameState) -> None:
+        """
+        Start the active player's turn.
+
+        Resets turn-specific player state, untaps permanents,
+        and removes summoning sickness from permanents that
+        entered before the current turn.
+        """
+        self._validate_running_game(state)
+
+        player = state.active_player
+
+        if player is None:
+            raise ValueError("Active player could not be resolved.")
+
+        state.phase = Phase.UNTAP
+
+        player.land_played_this_turn = 0
+        player.mana_pool.clear()
+
+        for permanent in player.battlefield:
+            permanent.tapped = False
+
+            if permanent.entered_turn < state.turn_number:
+                permanent.summoning_sick = False
+
+
+    def advance_phase(self, state: GameState) -> None:
+        """
+        Advance to the next phase in the current turn.
+        """
+        self._validate_running_game(state)
+
+        if state.phase is Phase.END:
+            raise ValueError(
+                "Cannot advance beyond END phase. Start a new turn instead."
+            )
+
+        state.phase = Turn.next_phase(state.phase)
+
+
+    def end_turn(self, state: GameState) -> None:
+        """
+        End the current turn and begin the next turn.
+
+        Version 1 uses one active player, but active_player_index
+        is still advanced for future multiplayer support.
+        """
+        self._validate_running_game(state)
+
+        if state.phase is not Phase.END:
+            raise ValueError(
+                "A turn can only end during the END phase."
+            )
+
+        for player in state.players:
+            player.mana_pool.clear()
+
+        state.turn_number += 1
+
+        if state.players:
+            state.active_player_index = (
+                state.active_player_index + 1
+            ) % len(state.players)
+
+        self.start_turn(state)
+
+
+    @staticmethod
+    def _validate_running_game(state: GameState) -> None:
+        if not state.started:
+            raise ValueError("Game has not started.")
+
+        if state.game_over:
+            raise ValueError("Game has already finished.")
+
+        if not state.players:
+            raise ValueError("Game has no players.")
