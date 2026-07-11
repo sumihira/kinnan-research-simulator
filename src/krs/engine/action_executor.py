@@ -8,7 +8,9 @@ from krs.actions.draw import DrawAction
 from krs.actions.mulligan import MulliganAction
 from krs.game.game_state import GameState
 from krs.game.player import Player
-
+from krs.actions.play_land import PlayLandAction
+from krs.game.permanent import Permanent
+from krs.game.phase import Phase
 
 class ActionExecutor:
     """
@@ -34,6 +36,10 @@ class ActionExecutor:
 
         if isinstance(action, BottomCardsAction):
             self._execute_bottom_cards(state, action)
+            return
+
+        if isinstance(action, PlayLandAction):
+            self._execute_play_land(state, action)
             return
 
         raise NotImplementedError(
@@ -156,3 +162,63 @@ class ActionExecutor:
                 return player
 
         raise ValueError(f"Player not found: {player_id}")
+    
+    def _execute_play_land(
+        self,
+        state: GameState,
+        action: PlayLandAction,
+    ) -> None:
+        player = self._get_player(state, action.player_id)
+
+        if not state.started:
+            raise ValueError("Cannot play a land before the game starts.")
+
+        if state.game_over:
+            raise ValueError("Cannot play a land in a finished game.")
+
+        if state.phase is not Phase.MAIN:
+            raise ValueError("Lands can only be played during the main phase.")
+
+        if player.land_played_this_turn >= 1:
+            raise ValueError("A land has already been played this turn.")
+
+        card = self._find_card_in_hand(
+            player=player,
+            card_id=action.card.id,
+        )
+
+        if not self._is_land(card):
+            raise ValueError(f"Card is not a land: {card.name}")
+
+        permanent = Permanent(
+            permanent_id=state.next_permanent_id,
+            card=card,
+            owner_id=player.player_id,
+            controller_id=player.player_id,
+            summoning_sick=False,
+            entered_turn=state.turn_number,
+        )
+
+        player.hand.remove(card)
+        player.battlefield.add(permanent)
+
+        player.land_played_this_turn += 1
+        state.next_permanent_id += 1
+        state.action_count += 1
+
+    @staticmethod
+    def _find_card_in_hand(
+        player: Player,
+        card_id: str,
+    ):
+        for card in player.hand:
+            if card.id == card_id:
+                return card
+
+        raise ValueError(f"Card not found in hand: {card_id}")
+
+    @staticmethod
+    def _is_land(card) -> bool:
+        card_types = card.type_line.split(" — ", maxsplit=1)[0].split()
+
+        return "Land" in card_types

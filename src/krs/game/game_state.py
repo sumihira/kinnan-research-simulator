@@ -25,6 +25,8 @@ class GameState:
     mana_spent: int = 0
     mana_generated: int = 0
 
+    next_permanent_id: int = 1
+
     seed: int | None = None
     game_id: int = 0
 

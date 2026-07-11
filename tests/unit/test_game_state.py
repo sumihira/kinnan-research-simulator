@@ -39,6 +39,7 @@ def test_game_state_has_expected_defaults() -> None:
     assert state.seed is None
     assert state.game_id == 0
     assert state.started is False
+    assert state.next_permanent_id == 1
 
 
 def test_game_states_do_not_share_player_lists() -> None:
