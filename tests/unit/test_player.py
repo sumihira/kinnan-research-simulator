@@ -1,6 +1,7 @@
 from krs.game.player import Player
 from krs.game.zone import Zone
 from krs.mana.mana_pool import ManaPool
+from krs.game.library import Library
 
 
 def test_player_can_be_created() -> None:
@@ -19,7 +20,7 @@ def test_player_starts_with_40_life() -> None:
 def test_player_has_all_zones() -> None:
     player = Player(player_id=0)
 
-    assert isinstance(player.library, Zone)
+    assert isinstance(player.library, Library)
     assert isinstance(player.hand, Zone)
     assert isinstance(player.battlefield, Zone)
     assert isinstance(player.graveyard, Zone)

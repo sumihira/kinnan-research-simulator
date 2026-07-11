@@ -6,6 +6,7 @@ from krs.cards.card import Card
 from krs.game.permanent import Permanent
 from krs.game.zone import Zone
 from krs.mana.mana_pool import ManaPool
+from krs.game.library import Library
 
 
 @dataclass(slots=True)
@@ -23,7 +24,7 @@ class Player:
 
     life: int = 40
 
-    library: Zone[Card] = field(default_factory=Zone)
+    library: Library[Card] = field(default_factory=Library)
 
     hand: Zone[Card] = field(default_factory=Zone)
 
