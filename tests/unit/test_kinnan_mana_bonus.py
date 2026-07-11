@@ -120,7 +120,67 @@ def create_forest(
         summoning_sick=False,
         entered_turn=1,
     )
+def create_roaming_throne(
+    *,
+    permanent_id: int = 3,
+    chosen_type: str = "Human",
+) -> Permanent:
+    card = Card(
+        id=f"roaming-throne-{permanent_id}",
+        name="Roaming Throne",
+        mana_cost="{4}",
+        mana_value=4,
+        oracle_text="",
+        type_line="Artifact Creature — Golem",
+        power=4,
+        toughness=4,
+    )
 
+    return Permanent(
+        permanent_id=permanent_id,
+        card=card,
+        owner_id=0,
+        controller_id=0,
+        summoning_sick=True,
+        entered_turn=1,
+        chosen_values={
+            "creature_type": chosen_type,
+        },
+    )
+def create_kinnan_copy(
+    permanent_id: int = 4,
+) -> Permanent:
+    kinnan_card = Card(
+        id="kinnan-id",
+        name="Kinnan, Bonder Prodigy",
+        mana_cost="{G}{U}",
+        mana_value=2,
+        oracle_text="",
+        type_line="Legendary Creature — Human Druid",
+        power=2,
+        toughness=2,
+    )
+
+    spark_double_card = Card(
+        id="spark-double-id",
+        name="Spark Double",
+        mana_cost="{3}{U}",
+        mana_value=4,
+        oracle_text="",
+        type_line="Creature — Illusion",
+        power=0,
+        toughness=0,
+    )
+
+    return Permanent(
+        permanent_id=permanent_id,
+        card=spark_double_card,
+        copied_from=kinnan_card,
+        owner_id=0,
+        controller_id=0,
+        summoning_sick=True,
+        entered_turn=1,
+    )
 
 def test_sol_ring_produces_one_additional_mana_with_kinnan() -> None:
     state = create_running_state()
@@ -259,3 +319,154 @@ def test_summoning_sick_kinnan_still_provides_bonus() -> None:
     )
 
     assert player.mana_pool.count(Mana.COLORLESS) == 3
+
+def test_one_kinnan_and_one_throne_add_two_bonus_mana() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    player.battlefield.add(create_kinnan())
+    player.battlefield.add(
+        create_roaming_throne(
+            chosen_type="Human",
+        )
+    )
+
+    sol_ring = create_sol_ring()
+    player.battlefield.add(sol_ring)
+
+    ActionExecutor().execute(
+        state,
+        TapPermanentAction(
+            player_id=0,
+            turn_number=1,
+            permanent=sol_ring,
+            mana=Mana.COLORLESS,
+        ),
+    )
+
+    # Sol Ring 2 + Kinnan trigger twice
+    assert player.mana_pool.count(Mana.COLORLESS) == 4
+    assert state.mana_generated == 4
+
+
+def test_throne_with_unrelated_type_does_not_add_trigger() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    player.battlefield.add(create_kinnan())
+    player.battlefield.add(
+        create_roaming_throne(
+            chosen_type="Golem",
+        )
+    )
+
+    sol_ring = create_sol_ring()
+    player.battlefield.add(sol_ring)
+
+    ActionExecutor().execute(
+        state,
+        TapPermanentAction(
+            player_id=0,
+            turn_number=1,
+            permanent=sol_ring,
+            mana=Mana.COLORLESS,
+        ),
+    )
+
+    assert player.mana_pool.count(Mana.COLORLESS) == 3
+    assert state.mana_generated == 3
+
+
+def test_two_kinnans_without_throne_add_two_bonus_mana() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    player.battlefield.add(create_kinnan())
+    player.battlefield.add(create_kinnan_copy())
+
+    sol_ring = create_sol_ring()
+    player.battlefield.add(sol_ring)
+
+    ActionExecutor().execute(
+        state,
+        TapPermanentAction(
+            player_id=0,
+            turn_number=1,
+            permanent=sol_ring,
+            mana=Mana.COLORLESS,
+        ),
+    )
+
+    # Sol Ring 2 + two Kinnan triggers
+    assert player.mana_pool.count(Mana.COLORLESS) == 4
+    assert state.mana_generated == 4
+
+
+def test_two_kinnans_and_one_throne_add_four_bonus_mana() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    player.battlefield.add(create_kinnan())
+    player.battlefield.add(create_kinnan_copy())
+    player.battlefield.add(
+        create_roaming_throne(
+            chosen_type="Druid",
+        )
+    )
+
+    sol_ring = create_sol_ring()
+    player.battlefield.add(sol_ring)
+
+    ActionExecutor().execute(
+        state,
+        TapPermanentAction(
+            player_id=0,
+            turn_number=1,
+            permanent=sol_ring,
+            mana=Mana.COLORLESS,
+        ),
+    )
+
+    # Sol Ring 2 + (Kinnan 2体 × 各2回)
+    assert player.mana_pool.count(Mana.COLORLESS) == 6
+    assert state.mana_generated == 6
+
+
+def test_two_kinnans_and_two_thrones_add_six_bonus_mana() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    player.battlefield.add(create_kinnan())
+    player.battlefield.add(create_kinnan_copy())
+
+    player.battlefield.add(
+        create_roaming_throne(
+            permanent_id=3,
+            chosen_type="Human",
+        )
+    )
+    player.battlefield.add(
+        create_roaming_throne(
+            permanent_id=4,
+            chosen_type="Druid",
+        )
+    )
+
+    sol_ring = create_sol_ring(
+        permanent_id=5,
+    )
+    player.battlefield.add(sol_ring)
+
+    ActionExecutor().execute(
+        state,
+        TapPermanentAction(
+            player_id=0,
+            turn_number=1,
+            permanent=sol_ring,
+            mana=Mana.COLORLESS,
+        ),
+    )
+
+    # Sol Ring 2 + (Kinnan 2体 × 各3回)
+    assert player.mana_pool.count(Mana.COLORLESS) == 8
+    assert state.mana_generated == 8

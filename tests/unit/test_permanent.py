@@ -173,3 +173,58 @@ def test_permanent_can_have_different_owner_and_controller() -> None:
 
     assert permanent.owner_id == 0
     assert permanent.controller_id == 1
+
+def test_permanents_do_not_share_chosen_values() -> None:
+    first = Permanent(
+        permanent_id=1,
+        card=create_kinnan(),
+        owner_id=0,
+        controller_id=0,
+    )
+    second = Permanent(
+        permanent_id=2,
+        card=create_kinnan(),
+        owner_id=0,
+        controller_id=0,
+    )
+
+    first.chosen_values["creature_type"] = "Human"
+
+    assert first.chosen_values == {
+        "creature_type": "Human",
+    }
+    assert second.chosen_values == {}
+
+
+def test_permanent_returns_creature_types() -> None:
+    permanent = Permanent(
+        permanent_id=1,
+        card=create_kinnan(),
+        owner_id=0,
+        controller_id=0,
+    )
+
+    assert permanent.creature_types == {
+        "Human",
+        "Druid",
+    }
+
+
+def test_noncreature_has_no_creature_types() -> None:
+    card = Card(
+        id="sol-ring-id",
+        name="Sol Ring",
+        mana_cost="{1}",
+        mana_value=1,
+        oracle_text="{T}: Add {C}{C}.",
+        type_line="Artifact",
+    )
+
+    permanent = Permanent(
+        permanent_id=1,
+        card=card,
+        owner_id=0,
+        controller_id=0,
+    )
+
+    assert permanent.creature_types == set()

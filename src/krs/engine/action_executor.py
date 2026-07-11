@@ -16,7 +16,7 @@ from krs.mana.mana import Mana
 from krs.abilities.mana_ability import ManaAbility
 from krs.commanders.kinnan import (
     choose_kinnan_bonus_mana,
-    count_active_kinnan_effects,
+    count_kinnan_bonus_triggers,
 )
 
 class ActionExecutor:
@@ -289,11 +289,11 @@ class ActionExecutor:
         amount_generated = sum(produced_mana.values())
 
         if permanent.is_nonland:
-            kinnan_effect_count = count_active_kinnan_effects(
+            bonus_trigger_count = count_kinnan_bonus_triggers(
                 player.battlefield
             )
 
-            if kinnan_effect_count > 0:
+            if bonus_trigger_count > 0:
                 bonus_mana = choose_kinnan_bonus_mana(
                     produced_mana=produced_mana,
                     selected_mana=action.mana,
@@ -301,10 +301,10 @@ class ActionExecutor:
 
                 player.mana_pool.add(
                     bonus_mana,
-                    kinnan_effect_count,
+                    bonus_trigger_count,
                 )
 
-                amount_generated += kinnan_effect_count
+                amount_generated += bonus_trigger_count
 
         state.mana_generated += amount_generated
         state.action_count += 1
