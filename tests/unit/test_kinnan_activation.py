@@ -135,6 +135,14 @@ def test_kinnan_activation_puts_selected_creature_onto_battlefield() -> None:
     assert state.mana_spent == 7
     assert state.action_count == 1
     assert player.mana_pool.total() == 0
+    assert state.kinnan_chain.activation_count == 1
+    assert state.kinnan_chain.hit_count == 1
+    assert state.kinnan_chain.miss_count == 0
+    assert state.kinnan_chain.current_chain_length == 1
+    assert state.kinnan_chain.longest_chain_length == 1
+    assert state.kinnan_chain.hit_card_ids == [
+        selected.id,
+    ]
 
 def test_kinnan_activation_puts_remaining_reveals_on_bottom() -> None:
     state = create_running_state()
@@ -232,6 +240,10 @@ def test_kinnan_activation_allows_no_selection() -> None:
     assert list(player.library) == revealed
     assert state.mana_spent == 7
     assert state.action_count == 1
+    assert state.kinnan_chain.activation_count == 1
+    assert state.kinnan_chain.hit_count == 0
+    assert state.kinnan_chain.miss_count == 1
+    assert state.kinnan_chain.current_chain_length == 0
 
 def test_kinnan_activation_rejects_human_creature() -> None:
     state = create_running_state()
@@ -290,6 +302,9 @@ def test_kinnan_activation_rejects_human_creature() -> None:
     assert player.mana_pool.total() == 7
     assert state.mana_spent == 0
     assert state.action_count == 0
+    assert state.kinnan_chain.activation_count == 0
+    assert state.kinnan_chain.hit_count == 0
+    assert state.kinnan_chain.miss_count == 0
 
 def test_kinnan_activation_rejects_noncreature() -> None:
     state = create_running_state()
@@ -492,3 +507,140 @@ def test_kinnan_activation_looks_at_remaining_library_when_below_five() -> None:
 
     assert len(player.battlefield) == 2
     assert len(player.library) == 1
+
+def test_consecutive_kinnan_hits_build_chain() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    first_hit = create_card(
+        card_id="first-hit-id",
+        name="First Hit",
+        type_line="Creature — Beast",
+    )
+    second_hit = create_card(
+        card_id="second-hit-id",
+        name="Second Hit",
+        type_line="Creature — Beast",
+    )
+
+    filler_cards = [
+        create_card(
+            card_id=f"filler-{index}",
+            name=f"Filler {index}",
+            type_line="Artifact",
+        )
+        for index in range(8)
+    ]
+
+    player.library.cards.extend(
+        [
+            first_hit,
+            *filler_cards[:4],
+            second_hit,
+            *filler_cards[4:],
+        ]
+    )
+
+    add_activation_mana(player)
+
+    executor = ActionExecutor()
+
+    executor.execute(
+        state,
+        ActivateKinnanAction(
+            player_id=0,
+            turn_number=3,
+            source_permanent_id=1,
+            selected_card_id=first_hit.id,
+        ),
+    )
+
+    add_activation_mana(player)
+
+    executor.execute(
+        state,
+        ActivateKinnanAction(
+            player_id=0,
+            turn_number=3,
+            source_permanent_id=1,
+            selected_card_id=second_hit.id,
+        ),
+    )
+
+    assert state.kinnan_chain.activation_count == 2
+    assert state.kinnan_chain.hit_count == 2
+    assert state.kinnan_chain.miss_count == 0
+    assert state.kinnan_chain.current_chain_length == 2
+    assert state.kinnan_chain.longest_chain_length == 2
+    assert state.kinnan_chain.hit_card_ids == [
+        first_hit.id,
+        second_hit.id,
+    ]
+
+def test_kinnan_miss_ends_current_chain() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    hit = create_card(
+        card_id="hit-id",
+        name="Valid Hit",
+        type_line="Creature — Beast",
+    )
+
+    first_filler = [
+        create_card(
+            card_id=f"first-filler-{index}",
+            name=f"First Filler {index}",
+            type_line="Artifact",
+        )
+        for index in range(4)
+    ]
+
+    second_filler = [
+        create_card(
+            card_id=f"second-filler-{index}",
+            name=f"Second Filler {index}",
+            type_line="Artifact",
+        )
+        for index in range(5)
+    ]
+
+    player.library.cards.extend(
+        [
+            hit,
+            *first_filler,
+            *second_filler,
+        ]
+    )
+
+    executor = ActionExecutor()
+
+    add_activation_mana(player)
+
+    executor.execute(
+        state,
+        ActivateKinnanAction(
+            player_id=0,
+            turn_number=3,
+            source_permanent_id=1,
+            selected_card_id=hit.id,
+        ),
+    )
+
+    add_activation_mana(player)
+
+    executor.execute(
+        state,
+        ActivateKinnanAction(
+            player_id=0,
+            turn_number=3,
+            source_permanent_id=1,
+            selected_card_id=None,
+        ),
+    )
+
+    assert state.kinnan_chain.activation_count == 2
+    assert state.kinnan_chain.hit_count == 1
+    assert state.kinnan_chain.miss_count == 1
+    assert state.kinnan_chain.current_chain_length == 0
+    assert state.kinnan_chain.longest_chain_length == 1

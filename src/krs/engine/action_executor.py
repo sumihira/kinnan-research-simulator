@@ -837,6 +837,12 @@ class ActionExecutor:
         player.library.put_many_on_bottom(
             remaining_cards
         )
+        if selected_card is not None:
+            state.kinnan_chain.record_hit(
+                selected_card.id
+            )
+        else:
+            state.kinnan_chain.record_miss()
 
         state.mana_spent += (
             KINNAN_ACTIVATION_COST.total

@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 
 from krs.game.phase import Phase
 from krs.game.player import Player
-
+from krs.statistics.kinnan_chain import (
+    KinnanChainStatistics,
+)
 
 @dataclass(slots=True)
 class GameState:
@@ -26,6 +28,9 @@ class GameState:
     mana_generated: int = 0
 
     next_permanent_id: int = 1
+    kinnan_chain: KinnanChainStatistics = field(
+       default_factory=KinnanChainStatistics
+    )
 
     seed: int | None = None
     game_id: int = 0

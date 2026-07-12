@@ -40,6 +40,9 @@ def test_game_state_has_expected_defaults() -> None:
     assert state.game_id == 0
     assert state.started is False
     assert state.next_permanent_id == 1
+    assert state.kinnan_chain.activation_count == 0
+    assert state.kinnan_chain.hit_count == 0
+    assert state.kinnan_chain.miss_count == 0
 
 
 def test_game_states_do_not_share_player_lists() -> None:
@@ -99,3 +102,12 @@ def test_game_state_can_be_marked_finished() -> None:
 
     assert state.game_over is True
     assert state.winner == "combo"
+
+def test_game_states_do_not_share_kinnan_chain_statistics() -> None:
+    first = GameState()
+    second = GameState()
+
+    first.kinnan_chain.record_hit("card-1")
+
+    assert first.kinnan_chain.hit_count == 1
+    assert second.kinnan_chain.hit_count == 0
