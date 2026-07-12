@@ -15,11 +15,13 @@ def create_raw_card(
     *,
     card_id: str,
     name: str,
+    mana_cost: str,
+    mana_value: int,
     type_line: str,
-    mana_cost: str = "",
-    mana_value: int = 0,
-    oracle_text: str = "",
+    oracle_text: str,
 ) -> dict[str, object]:
+    """Create a minimal Scryfall-style card definition."""
+
     return {
         "id": card_id,
         "name": name,
@@ -31,10 +33,11 @@ def create_raw_card(
     }
 
 
-def test_cached_deck_loader_applies_card_config(
-    tmp_path: Path,
+def write_card_cache(
+    cache_path: Path,
 ) -> None:
-    cache_path = tmp_path / "cards.json"
+    """Write the local Scryfall cache used by the integration test."""
+
     cache_path.write_text(
         json.dumps(
             [
@@ -45,6 +48,11 @@ def test_cached_deck_loader_applies_card_config(
                     mana_value=2,
                     type_line=(
                         "Legendary Creature — Human Druid"
+                    ),
+                    oracle_text=(
+                        "Whenever you tap a nonland permanent "
+                        "for mana, add one mana of any type "
+                        "that permanent produced."
                     ),
                 ),
                 create_raw_card(
@@ -58,52 +66,84 @@ def test_cached_deck_loader_applies_card_config(
                 create_raw_card(
                     card_id="forest-id",
                     name="Forest",
+                    mana_cost="",
+                    mana_value=0,
                     type_line="Basic Land — Forest",
+                    oracle_text="",
                 ),
             ]
         ),
         encoding="utf-8",
     )
 
-    deck_path = tmp_path / "kinnan.csv"
+
+def write_deck_csv(
+    deck_path: Path,
+) -> None:
+    """Write the deck list used by the integration test."""
+
     deck_path.write_text(
-        '''quantity,name,section
-1,"Kinnan, Bonder Prodigy",commander
-1,Sol Ring,main
-2,Forest,main
-''',
+        (
+            "quantity,name,section\n"
+            '1,"Kinnan, Bonder Prodigy",commander\n'
+            "1,Sol Ring,main\n"
+            "2,Forest,main\n"
+        ),
         encoding="utf-8",
     )
 
-    config_directory = tmp_path / "cards"
-    config_directory.mkdir()
 
-    config_directory.joinpath("sol_ring.yaml").write_text(
-        """
-card_name: Sol Ring
+def write_sol_ring_config(
+    config_directory: Path,
+) -> None:
+    """Write the card-specific Sol Ring ability definition."""
 
-abilities:
-  mana:
-    - produces:
-        COLORLESS: 2
-      requires_tap: true
-""".strip(),
+    config_directory.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    config_path = config_directory / "Sol_Ring.yaml"
+    config_path.write_text(
+        (
+            "card_name: Sol Ring\n"
+            "\n"
+            "abilities:\n"
+            "  mana:\n"
+            "    - produces:\n"
+            "        COLORLESS: 2\n"
+            "      requires_tap: true\n"
+        ),
         encoding="utf-8",
     )
+
+
+def test_cached_deck_loader_applies_card_enrichment(
+    tmp_path: Path,
+) -> None:
+    """Load a cached deck and enrich Sol Ring from YAML."""
+
+    cache_path = tmp_path / "cards.json"
+    deck_path = tmp_path / "kinnan.csv"
+    config_directory = tmp_path / "card_configs"
+
+    write_card_cache(cache_path)
+    write_deck_csv(deck_path)
+    write_sol_ring_config(config_directory)
 
     cache = CardCache.load_json(cache_path)
-    enricher = CardEnricher(
-        CardConfigLoader(config_directory)
-    )
+    config_loader = CardConfigLoader(config_directory)
+    card_enricher = CardEnricher(config_loader)
+
     card_loader = CardLoader.from_cache(
         cache,
-        enricher=enricher,
+        enricher=card_enricher,
     )
+    deck_loader = DeckLoader(card_loader)
 
-    deck = DeckLoader(card_loader).load_csv(deck_path)
+    deck = deck_loader.load_csv(deck_path)
 
     assert deck.commander.name == "Kinnan, Bonder Prodigy"
-    assert deck.commander.mana_abilities == ()
 
     assert [card.name for card in deck.cards] == [
         "Sol Ring",
@@ -114,17 +154,47 @@ abilities:
     sol_ring = deck.cards[0]
 
     assert len(sol_ring.mana_abilities) == 1
-    assert sol_ring.mana_abilities[0].produced_mana == {
+
+    mana_ability = sol_ring.mana_abilities[0]
+
+    assert mana_ability.requires_tap is True
+    assert mana_ability.total_produced == 2
+    assert mana_ability.produced_mana == {
         Mana.COLORLESS: 2,
     }
-    assert sol_ring.mana_abilities[0].total_produced == 2
 
+
+def test_cached_deck_loader_leaves_unconfigured_cards_unchanged(
+    tmp_path: Path,
+) -> None:
+    """Leave cards without individual YAML definitions unchanged."""
+
+    cache_path = tmp_path / "cards.json"
+    deck_path = tmp_path / "kinnan.csv"
+    config_directory = tmp_path / "card_configs"
+
+    write_card_cache(cache_path)
+    write_deck_csv(deck_path)
+    write_sol_ring_config(config_directory)
+
+    cache = CardCache.load_json(cache_path)
+    config_loader = CardConfigLoader(config_directory)
+    card_enricher = CardEnricher(config_loader)
+
+    card_loader = CardLoader.from_cache(
+        cache,
+        enricher=card_enricher,
+    )
+    deck = DeckLoader(card_loader).load_csv(deck_path)
+
+    commander = deck.commander
     forests = [
         card
         for card in deck.cards
         if card.name == "Forest"
     ]
 
+    assert commander.mana_abilities == ()
     assert len(forests) == 2
     assert all(
         forest.mana_abilities == ()

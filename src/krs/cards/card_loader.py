@@ -8,12 +8,7 @@ from krs.cards.card_enricher import CardEnricher
 
 
 class CardLoader:
-    """
-    Resolves card definitions by name.
-
-    It can use an in-memory mapping for unit tests or a local
-    Scryfall-backed CardCache for production.
-    """
+    """Resolves and enriches card definitions by name."""
 
     def __init__(
         self,
