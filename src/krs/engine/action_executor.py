@@ -18,6 +18,8 @@ from krs.commanders.kinnan import (
     choose_kinnan_bonus_mana,
     count_kinnan_bonus_triggers,
 )
+from krs.actions.cast_spell import CastSpellAction
+from krs.cards.card import Card
 
 class ActionExecutor:
     """
@@ -51,6 +53,10 @@ class ActionExecutor:
 
         if isinstance(action, TapPermanentAction):
             self._execute_tap_permanent(state, action)
+            return
+
+        if isinstance(action, CastSpellAction):
+            self._execute_cast_spell(state, action)
             return
 
         raise NotImplementedError(
@@ -221,12 +227,14 @@ class ActionExecutor:
     def _find_card_in_hand(
         player: Player,
         card_id: str,
-    ):
+    ) -> Card:
         for card in player.hand:
             if card.id == card_id:
                 return card
 
-        raise ValueError(f"Card not found in hand: {card_id}")
+        raise ValueError(
+            f"Card not found in hand: {card_id}"
+        )
 
     @staticmethod
     def _is_land(card) -> bool:
@@ -412,3 +420,113 @@ class ActionExecutor:
         return {
             selected_mana: ability.produced_mana[selected_mana]
         }
+
+    def _execute_cast_spell(
+        self,
+        state: GameState,
+        action: CastSpellAction,
+    ) -> None:
+        player = self._get_player(
+            state,
+            action.player_id,
+        )
+
+        if not state.started:
+            raise ValueError(
+                "Cannot cast a spell before the game starts."
+            )
+
+        if state.game_over:
+            raise ValueError(
+                "Cannot cast a spell in a finished game."
+            )
+
+        if state.phase is not Phase.MAIN:
+            raise ValueError(
+                "Permanent spells can only be cast during the main phase."
+            )
+
+        card = self._find_card_in_hand(
+            player=player,
+            card_id=action.card.id,
+        )
+
+        if self._is_land_card(card):
+            raise ValueError(
+                f"Land cards cannot be cast as spells: {card.name}"
+            )
+
+        if not self._is_permanent_card(card):
+            raise ValueError(
+                "Only permanent spells are supported: "
+                f"{card.name}"
+            )
+
+        # 支払い可能性を先に検証する。
+        # pay() は失敗時にManaPoolを変更しない。
+        if not player.mana_pool.can_pay(action.cost):
+            raise ValueError(
+                f"Mana cost cannot be paid for: {card.name}"
+            )
+
+        player.mana_pool.pay(action.cost)
+
+        permanent = Permanent(
+            permanent_id=state.next_permanent_id,
+            card=card,
+            owner_id=player.player_id,
+            controller_id=player.player_id,
+            tapped=False,
+            summoning_sick=self._is_creature_card(card),
+            entered_turn=state.turn_number,
+        )
+
+        player.hand.remove(card)
+        player.battlefield.add(permanent)
+
+        state.next_permanent_id += 1
+        state.mana_spent += action.cost.total
+        state.action_count += 1
+
+    @staticmethod
+    def _card_types(card: Card) -> set[str]:
+        type_part = card.type_line.split(
+            " — ",
+            maxsplit=1,
+        )[0]
+
+        return set(type_part.split())
+
+
+    @classmethod
+    def _is_land_card(
+        cls,
+        card: Card,
+    ) -> bool:
+        return "Land" in cls._card_types(card)
+
+
+    @classmethod
+    def _is_creature_card(
+        cls,
+        card: Card,
+    ) -> bool:
+        return "Creature" in cls._card_types(card)
+
+
+    @classmethod
+    def _is_permanent_card(
+        cls,
+        card: Card,
+    ) -> bool:
+        permanent_types = {
+            "Artifact",
+            "Battle",
+            "Creature",
+            "Enchantment",
+            "Planeswalker",
+        }
+
+        return bool(
+            cls._card_types(card) & permanent_types
+        )

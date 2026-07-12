@@ -7,5 +7,11 @@ from krs.mana.mana_cost import ManaCost
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class CastSpellAction(Action):
+    """
+    Cast a spell from the player's hand.
+
+    Version 1 supports permanent spells only.
+    """
+
     card: Card
     cost: ManaCost
