@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Mapping
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ActivatedAbility:
-    """Immutable activated ability definition."""
+    """Defines an immutable activated ability."""
 
     ability_type: str
     mana_cost: str = ""
@@ -15,23 +15,28 @@ class ActivatedAbility:
     parameters: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
-        normalized_type = self.ability_type.strip()
+        normalized_ability_type = self.ability_type.strip()
+        normalized_mana_cost = self.mana_cost.strip()
 
-        if not normalized_type:
+        if not normalized_ability_type:
             raise ValueError(
                 "Activated ability type must not be empty."
             )
-
-        object.__setattr__(
-            self,
-            "ability_type",
-            normalized_type,
-        )
 
         immutable_parameters = MappingProxyType(
             dict(self.parameters or {})
         )
 
+        object.__setattr__(
+            self,
+            "ability_type",
+            normalized_ability_type,
+        )
+        object.__setattr__(
+            self,
+            "mana_cost",
+            normalized_mana_cost,
+        )
         object.__setattr__(
             self,
             "parameters",

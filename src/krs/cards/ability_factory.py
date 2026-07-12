@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
 
 from krs.abilities.activated import ActivatedAbility
-from krs.abilities.etb import EtbAbility
 from krs.abilities.mana_ability import ManaAbility
 from krs.abilities.replacement import ReplacementAbility
 from krs.abilities.static import StaticAbility
@@ -13,12 +11,14 @@ from krs.mana.mana import Mana
 
 
 class AbilityFactory:
-    """Creates structured abilities from card YAML definitions."""
+    """Creates structured abilities from card configuration data."""
 
     @staticmethod
     def create_mana_ability(
         definition: Mapping[str, object],
     ) -> ManaAbility:
+        """Create a mana ability from a YAML definition."""
+
         raw_produces = definition.get("produces")
 
         if not isinstance(raw_produces, Mapping):
@@ -42,8 +42,15 @@ class AbilityFactory:
                     "Produced mana amount must be an integer."
                 )
 
+            if raw_amount <= 0:
+                raise ValueError(
+                    "Produced mana amount must be greater than zero."
+                )
+
+            normalized_mana = raw_mana.strip().upper()
+
             try:
-                mana = Mana[raw_mana.strip().upper()]
+                mana = Mana[normalized_mana]
             except KeyError as error:
                 raise ValueError(
                     f"Unknown mana type: {raw_mana}"
@@ -70,6 +77,8 @@ class AbilityFactory:
     def create_activated_ability(
         definition: Mapping[str, object],
     ) -> ActivatedAbility:
+        """Create an activated ability from a YAML definition."""
+
         return ActivatedAbility(
             ability_type=AbilityFactory._required_string(
                 definition,
@@ -91,6 +100,8 @@ class AbilityFactory:
     def create_static_ability(
         definition: Mapping[str, object],
     ) -> StaticAbility:
+        """Create a static ability from a YAML definition."""
+
         return StaticAbility(
             ability_type=AbilityFactory._required_string(
                 definition,
@@ -103,6 +114,8 @@ class AbilityFactory:
     def create_triggered_ability(
         definition: Mapping[str, object],
     ) -> TriggeredAbility:
+        """Create a triggered ability from a YAML definition."""
+
         return TriggeredAbility(
             ability_type=AbilityFactory._required_string(
                 definition,
@@ -116,21 +129,11 @@ class AbilityFactory:
         )
 
     @staticmethod
-    def create_etb_ability(
-        definition: Mapping[str, object],
-    ) -> EtbAbility:
-        return EtbAbility(
-            ability_type=AbilityFactory._required_string(
-                definition,
-                "ability_type",
-            ),
-            parameters=AbilityFactory._parameters(definition),
-        )
-
-    @staticmethod
     def create_replacement_ability(
         definition: Mapping[str, object],
     ) -> ReplacementAbility:
+        """Create a replacement ability from a YAML definition."""
+
         return ReplacementAbility(
             ability_type=AbilityFactory._required_string(
                 definition,
@@ -142,19 +145,6 @@ class AbilityFactory:
             ),
             parameters=AbilityFactory._parameters(definition),
         )
-
-    @staticmethod
-    def _parameters(
-        definition: Mapping[str, object],
-    ) -> Mapping[str, object]:
-        parameters = definition.get("parameters", {})
-
-        if not isinstance(parameters, Mapping):
-            raise ValueError(
-                "Ability parameters must be a mapping."
-            )
-
-        return dict(parameters)
 
     @staticmethod
     def _required_string(
@@ -175,7 +165,7 @@ class AbilityFactory:
         definition: Mapping[str, object],
         field_name: str,
     ) -> str:
-        value: Any = definition.get(field_name, "")
+        value = definition.get(field_name, "")
 
         if not isinstance(value, str):
             raise ValueError(
@@ -199,3 +189,16 @@ class AbilityFactory:
             )
 
         return value
+
+    @staticmethod
+    def _parameters(
+        definition: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        value = definition.get("parameters", {})
+
+        if not isinstance(value, Mapping):
+            raise ValueError(
+                "parameters must be a mapping."
+            )
+
+        return dict(value)
