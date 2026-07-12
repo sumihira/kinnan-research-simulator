@@ -30,6 +30,8 @@ from krs.commanders.kinnan_ability import (
     KINNAN_LOOK_COUNT,
     find_selected_hit,
 )
+from krs.actions.activate_ability import ActivateAbilityAction
+from krs.abilities.activated import ActivatedAbility
 
 class ActionExecutor:
     """
@@ -75,6 +77,10 @@ class ActionExecutor:
 
         if isinstance(action, ReturnCommanderAction):
             self._execute_return_commander(state, action)
+            return
+
+        if isinstance(action, ActivateAbilityAction):
+            self._execute_activate_ability(state, action)
             return
 
         if isinstance(action, ActivateKinnanAction):
@@ -658,6 +664,193 @@ class ActionExecutor:
             colorless=base_cost.colorless,
         )
     
+    def _execute_activate_ability(
+        self,
+        state: GameState,
+        action: ActivateAbilityAction,
+    ) -> None:
+        player = self._get_player(
+            state,
+            action.player_id,
+        )
+
+        if not state.started:
+            raise ValueError(
+                "Cannot activate an ability before the game starts."
+            )
+
+        if state.game_over:
+            raise ValueError(
+                "Cannot activate an ability in a finished game."
+            )
+
+        source = self._find_permanent_on_battlefield(
+            player=player,
+            permanent_id=action.source.permanent_id,
+        )
+
+        if source.controller_id != player.player_id:
+            raise ValueError(
+                "Player does not control the ability source."
+            )
+
+        ability = self._find_activated_ability(
+            source=source,
+            ability_index=action.ability_index,
+        )
+        cost = self._parse_activated_ability_cost(
+            ability.mana_cost
+        )
+
+        if not player.mana_pool.can_pay(cost):
+            raise ValueError(
+                "Activated ability cost cannot be paid: "
+                f"{source.effective_card.name}"
+            )
+
+        self._validate_activated_ability(
+            source=source,
+            ability=ability,
+        )
+
+        player.mana_pool.pay(cost)
+
+        self._apply_activated_ability(
+            source=source,
+            ability=ability,
+        )
+
+        state.mana_spent += cost.total
+        state.action_count += 1
+
+    @staticmethod
+    def _find_activated_ability(
+        source: Permanent,
+        ability_index: int,
+    ) -> ActivatedAbility:
+        abilities = source.effective_card.activated_abilities
+
+        if not 0 <= ability_index < len(abilities):
+            raise ValueError(
+                "Activated ability not found at index "
+                f"{ability_index}: {source.effective_card.name}"
+            )
+
+        return abilities[ability_index]
+
+    @staticmethod
+    def _parse_activated_ability_cost(
+        mana_cost: str,
+    ) -> ManaCost:
+        normalized_cost = mana_cost.strip()
+
+        if not normalized_cost:
+            return ManaCost()
+
+        generic = 0
+        white = 0
+        blue = 0
+        black = 0
+        red = 0
+        green = 0
+        colorless = 0
+
+        symbols = normalized_cost.replace("}{", " ").strip("{}").split()
+
+        for symbol in symbols:
+            if symbol.isdecimal():
+                generic += int(symbol)
+                continue
+
+            if symbol == "W":
+                white += 1
+                continue
+
+            if symbol == "U":
+                blue += 1
+                continue
+
+            if symbol == "B":
+                black += 1
+                continue
+
+            if symbol == "R":
+                red += 1
+                continue
+
+            if symbol == "G":
+                green += 1
+                continue
+
+            if symbol == "C":
+                colorless += 1
+                continue
+
+            raise ValueError(
+                f"Unsupported activated ability mana symbol: {symbol}"
+            )
+
+        return ManaCost(
+            generic=generic,
+            white=white,
+            blue=blue,
+            black=black,
+            red=red,
+            green=green,
+            colorless=colorless,
+        )
+
+    @staticmethod
+    def _validate_activated_ability(
+        source: Permanent,
+        ability: ActivatedAbility,
+    ) -> None:
+        if ability.requires_tap and source.tapped:
+            raise ValueError(
+                "Tapped permanent cannot pay a tap activation cost: "
+                f"{source.effective_card.name}"
+            )
+
+        if (
+            ability.requires_tap
+            and source.is_creature
+            and not source.can_activate_tap_ability
+        ):
+            raise ValueError(
+                "Summoning-sick creature cannot activate "
+                f"a tap ability: {source.effective_card.name}"
+            )
+
+        if ability.ability_type == "untap_self":
+            if not source.tapped:
+                raise ValueError(
+                    "Permanent is already untapped: "
+                    f"{source.effective_card.name}"
+                )
+            return
+
+        raise NotImplementedError(
+            "Unsupported activated ability type: "
+            f"{ability.ability_type}"
+        )
+
+    @staticmethod
+    def _apply_activated_ability(
+        source: Permanent,
+        ability: ActivatedAbility,
+    ) -> None:
+        if ability.requires_tap:
+            source.tapped = True
+
+        if ability.ability_type == "untap_self":
+            source.tapped = False
+            return
+
+        raise NotImplementedError(
+            "Unsupported activated ability type: "
+            f"{ability.ability_type}"
+        )
+
     def _execute_return_commander(
         self,
         state: GameState,
