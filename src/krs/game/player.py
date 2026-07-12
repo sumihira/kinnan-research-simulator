@@ -29,3 +29,4 @@ class Player:
     land_played_this_turn: int = 0
     mulligan_count: int = 0
     commander_cast_count: int = 0
+    commander_card_id: str | None = None

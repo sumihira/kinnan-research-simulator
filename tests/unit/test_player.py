@@ -79,3 +79,17 @@ def test_player_starts_with_zero_commander_casts() -> None:
     player = Player(player_id=0)
 
     assert player.commander_cast_count == 0
+
+def test_player_has_no_commander_id_by_default() -> None:
+    player = Player(player_id=0)
+
+    assert player.commander_card_id is None
+
+
+def test_player_can_store_commander_id() -> None:
+    player = Player(
+        player_id=0,
+        commander_card_id="kinnan-id",
+    )
+
+    assert player.commander_card_id == "kinnan-id"

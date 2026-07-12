@@ -22,6 +22,7 @@ from krs.actions.cast_spell import CastSpellAction
 from krs.cards.card import Card
 from krs.actions.cast_commander import CastCommanderAction
 from krs.mana.mana_cost import ManaCost
+from krs.actions.return_commander import ReturnCommanderAction
 
 class ActionExecutor:
     """
@@ -63,6 +64,10 @@ class ActionExecutor:
 
         if isinstance(action, CastCommanderAction):
             self._execute_cast_commander(state, action)
+            return
+
+        if isinstance(action, ReturnCommanderAction):
+            self._execute_return_commander(state, action)
             return
 
         raise NotImplementedError(
@@ -641,3 +646,93 @@ class ActionExecutor:
             green=base_cost.green,
             colorless=base_cost.colorless,
         )
+    
+    def _execute_return_commander(
+        self,
+        state: GameState,
+        action: ReturnCommanderAction,
+    ) -> None:
+        requesting_player = self._get_player(
+            state,
+            action.player_id,
+        )
+
+        if not state.started:
+            raise ValueError(
+                "Cannot return a commander before the game starts."
+            )
+
+        if state.game_over:
+            raise ValueError(
+                "Cannot return a commander in a finished game."
+            )
+
+        permanent = self._find_permanent_by_id(
+            state=state,
+            permanent_id=action.permanent_id,
+        )
+
+        if permanent.owner_id != requesting_player.player_id:
+            raise ValueError(
+                "Only the commander owner may return it "
+                "to the command zone."
+            )
+
+        if not self._is_commander_card(
+            player=requesting_player,
+            card_id=permanent.effective_card.id,
+        ):
+            raise ValueError(
+                "Permanent is not the player's commander: "
+                f"{permanent.effective_card.name}"
+            )
+
+        battlefield_owner = self._find_battlefield_containing(
+            state=state,
+            permanent_id=permanent.permanent_id,
+        )
+
+        battlefield_owner.battlefield.remove(permanent)
+
+        requesting_player.command.add(
+            permanent.effective_card
+        )
+
+        state.action_count += 1
+
+    @staticmethod
+    def _find_permanent_by_id(
+        state: GameState,
+        permanent_id: int,
+    ) -> Permanent:
+        for player in state.players:
+            for permanent in player.battlefield:
+                if permanent.permanent_id == permanent_id:
+                    return permanent
+
+        raise ValueError(
+            f"Permanent not found on battlefield: {permanent_id}"
+        )
+
+
+    @staticmethod
+    def _find_battlefield_containing(
+        state: GameState,
+        permanent_id: int,
+    ) -> Player:
+        for player in state.players:
+            for permanent in player.battlefield:
+                if permanent.permanent_id == permanent_id:
+                    return player
+
+        raise ValueError(
+            f"Permanent not found on battlefield: {permanent_id}"
+        )
+
+
+    @staticmethod
+    def _is_commander_card(
+        player: Player,
+        card_id: str,
+    ) -> bool:
+        return player.commander_card_id == card_id
