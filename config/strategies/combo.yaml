@@ -1,0 +1,17 @@
+name: combo
+
+weights:
+  mana_value: 0.7
+  mana_ability: 2.0
+  untap: 6.0
+  copy: 6.0
+  combo: 10.0
+
+combo_card_ids:
+  - basalt-monolith-id
+  - deadeye-navigator-id
+  - great-whale-id
+
+custom_scores:
+  hullbreaker-horror-id: 5.0
+  roaming-throne-id: 4.0

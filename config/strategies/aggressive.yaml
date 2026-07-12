@@ -1,0 +1,12 @@
+name: aggressive
+
+weights:
+  mana_value: 1.5
+  mana_ability: 1.0
+  untap: 3.0
+  copy: 2.0
+  combo: 2.0
+
+combo_card_ids: []
+
+custom_scores: {}

@@ -1,7 +1,17 @@
-name: ShangChiTest
+name: shang_chi
+
 weights:
-  mana: 0.8
-  combo: 3.5
-  tutor: 3.0
-  board: 1.2
-  chain: 4.0
+  mana_value: 0.8
+  mana_ability: 2.0
+  untap: 5.0
+  copy: 5.0
+  combo: 8.0
+
+combo_card_ids:
+  - shang-chi-id
+
+custom_scores:
+  shang-chi-id: 20.0
+  roaming-throne-id: 8.0
+  spark-double-id: 8.0
+  clever-impersonator-id: 6.0

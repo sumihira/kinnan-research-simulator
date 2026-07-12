@@ -1,21 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
+from typing import TYPE_CHECKING, Mapping
 
 from krs.ai.card_score import CardScore
 from krs.cards.card import Card
 
+if TYPE_CHECKING:
+    from krs.ai.strategy_config import StrategyConfig
+
 
 @dataclass(slots=True)
 class CardEvaluator:
-    """
-    Evaluates cards for Kinnan hit selection.
-
-    Version 1 uses Oracle-text keyword detection as a temporary
-    implementation. Structured ability data will replace this later.
-    """
-
     mana_value_weight: float = 1.0
     mana_ability_bonus: float = 2.0
     untap_bonus: float = 5.0
@@ -26,6 +22,21 @@ class CardEvaluator:
         default_factory=dict
     )
     combo_card_ids: frozenset[str] = frozenset()
+
+    @classmethod
+    def from_strategy(
+        cls,
+        config: StrategyConfig,
+    ) -> CardEvaluator:
+        return cls(
+            mana_value_weight=config.mana_value_weight,
+            mana_ability_bonus=config.mana_ability_bonus,
+            untap_bonus=config.untap_bonus,
+            copy_bonus=config.copy_bonus,
+            combo_bonus=config.combo_bonus,
+            custom_scores=config.custom_scores,
+            combo_card_ids=config.combo_card_ids,
+        )
 
     def evaluate(self, card: Card) -> CardScore:
         oracle_text = card.oracle_text.casefold()

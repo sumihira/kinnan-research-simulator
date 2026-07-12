@@ -1,7 +1,12 @@
-name: Balanced
+name: balanced
+
 weights:
-  mana: 1.0
+  mana_value: 1.0
+  mana_ability: 2.0
+  untap: 5.0
+  copy: 4.0
   combo: 3.0
-  tutor: 2.0
-  board: 1.5
-  chain: 2.5
+
+combo_card_ids: []
+
+custom_scores: {}

@@ -1,6 +1,7 @@
 from krs.ai.kinnan_hit_selector import KinnanHitSelector
 from krs.cards.card import Card
 from krs.ai.evaluator import CardEvaluator
+from krs.ai.strategy_config import StrategyConfig
 
 
 def create_card(
@@ -251,3 +252,45 @@ def test_selector_can_prefer_untap_creature() -> None:
     # Normal: 7
     # Untap: 4 + 5
     assert selected is untap_creature
+
+def test_strategy_config_changes_selection() -> None:
+    strategy = StrategyConfig(
+        name="combo",
+        mana_value_weight=0.5,
+        combo_bonus=10.0,
+        combo_card_ids=frozenset(
+            {
+                "combo-creature-id",
+            }
+        ),
+    )
+
+    selector = KinnanHitSelector(
+        evaluator=CardEvaluator.from_strategy(
+            strategy
+        )
+    )
+
+    large_creature = create_card(
+        card_id="large-id",
+        name="Large Creature",
+        mana_value=10,
+        type_line="Creature — Beast",
+    )
+    combo_creature = create_card(
+        card_id="combo-creature-id",
+        name="Combo Creature",
+        mana_value=2,
+        type_line="Creature — Beast",
+    )
+
+    selected = selector.select(
+        [
+            large_creature,
+            combo_creature,
+        ]
+    )
+
+    # Large: 10 * 0.5 = 5
+    # Combo: 2 * 0.5 + 10 = 11
+    assert selected is combo_creature
