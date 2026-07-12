@@ -29,6 +29,7 @@ from krs.commanders.kinnan_ability import (
 )
 from krs.actions.activate_ability import ActivateAbilityAction
 from krs.abilities.activated import ActivatedAbility
+from krs.engine.ability_executor import AbilityExecutor
 
 class ActionExecutor:
     """
@@ -42,10 +43,15 @@ class ActionExecutor:
     def __init__(
         self,
         static_ability_engine: StaticAbilityEngine | None = None,
+        ability_executor: AbilityExecutor | None = None,
     ) -> None:
         self._static_ability_engine = (
             static_ability_engine
             or StaticAbilityEngine()
+        )
+        self._ability_executor = (
+            ability_executor
+            or AbilityExecutor()
         )
 
     def execute(
@@ -710,14 +716,14 @@ class ActionExecutor:
                 f"{source.effective_card.name}"
             )
 
-        self._validate_activated_ability(
+        self._ability_executor.validate(
             source=source,
             ability=ability,
         )
 
         player.mana_pool.pay(cost)
 
-        self._apply_activated_ability(
+        self._ability_executor.execute(
             source=source,
             ability=ability,
         )
@@ -802,56 +808,6 @@ class ActionExecutor:
             colorless=colorless,
         )
 
-    @staticmethod
-    def _validate_activated_ability(
-        source: Permanent,
-        ability: ActivatedAbility,
-    ) -> None:
-        if ability.requires_tap and source.tapped:
-            raise ValueError(
-                "Tapped permanent cannot pay a tap activation cost: "
-                f"{source.effective_card.name}"
-            )
-
-        if (
-            ability.requires_tap
-            and source.is_creature
-            and not source.can_activate_tap_ability
-        ):
-            raise ValueError(
-                "Summoning-sick creature cannot activate "
-                f"a tap ability: {source.effective_card.name}"
-            )
-
-        if ability.ability_type == "untap_self":
-            if not source.tapped:
-                raise ValueError(
-                    "Permanent is already untapped: "
-                    f"{source.effective_card.name}"
-                )
-            return
-
-        raise NotImplementedError(
-            "Unsupported activated ability type: "
-            f"{ability.ability_type}"
-        )
-
-    @staticmethod
-    def _apply_activated_ability(
-        source: Permanent,
-        ability: ActivatedAbility,
-    ) -> None:
-        if ability.requires_tap:
-            source.tapped = True
-
-        if ability.ability_type == "untap_self":
-            source.tapped = False
-            return
-
-        raise NotImplementedError(
-            "Unsupported activated ability type: "
-            f"{ability.ability_type}"
-        )
 
     def _execute_return_commander(
         self,
