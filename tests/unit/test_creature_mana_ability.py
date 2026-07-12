@@ -9,7 +9,7 @@ from krs.game.permanent import Permanent
 from krs.game.phase import Phase
 from krs.game.player import Player
 from krs.mana.mana import Mana
-
+from krs.abilities.static import StaticAbility
 
 def create_running_state() -> GameState:
     return GameState(
@@ -58,9 +58,7 @@ def create_mana_creature(
             can_activate_as_though_haste
         ),
     )
-def create_kinnan(
-    permanent_id: int = 10,
-) -> Permanent:
+def create_kinnan() -> Permanent:
     card = Card(
         id="kinnan-id",
         name="Kinnan, Bonder Prodigy",
@@ -70,14 +68,25 @@ def create_kinnan(
         type_line="Legendary Creature — Human Druid",
         power="2",
         toughness="2",
+        static_abilities=(
+            StaticAbility(
+                ability_type="additional_nonland_mana",
+                parameters={
+                    "source_filter": {
+                        "permanent_type": "nonland",
+                    },
+                    "additional_amount": 1,
+                    "mana_selection": "produced_type",
+                },
+            ),
+        ),
     )
 
     return Permanent(
-        permanent_id=permanent_id,
+        permanent_id=10,
         card=card,
         owner_id=0,
         controller_id=0,
-        summoning_sick=True,
         entered_turn=1,
     )
 

@@ -1,7 +1,7 @@
 from krs.actions.cast_commander import CastCommanderAction
 from krs.cards.card import Card
 from krs.mana.mana_cost import ManaCost
-
+from krs.abilities.static import StaticAbility
 
 def create_kinnan() -> Card:
     return Card(

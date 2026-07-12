@@ -8,6 +8,7 @@ abilities:
           permanent_type: nonland
         additional_amount: 1
         mana_selection: produced_type
+      event: nonland_permanent_tapped_for_mana
 
   activated:
     - ability_type: activate_kinnan

@@ -13,6 +13,7 @@ from krs.commanders.kinnan import (
 from krs.game.permanent import Permanent
 from krs.game.zone import Zone
 from krs.mana.mana import Mana
+from krs.abilities.static import StaticAbility
 
 
 def create_permanent(

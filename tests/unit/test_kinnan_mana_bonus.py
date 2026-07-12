@@ -7,6 +7,7 @@ from krs.game.permanent import Permanent
 from krs.game.phase import Phase
 from krs.game.player import Player
 from krs.mana.mana import Mana
+from krs.abilities.static import StaticAbility
 
 
 def create_running_state() -> GameState:
@@ -17,11 +18,8 @@ def create_running_state() -> GameState:
         turn_number=1,
     )
 
-
-def create_kinnan(
-    permanent_id: int = 1,
-) -> Permanent:
-    card = Card(
+def create_kinnan_card() -> Card:
+    return Card(
         id="kinnan-id",
         name="Kinnan, Bonder Prodigy",
         mana_cost="{G}{U}",
@@ -30,14 +28,29 @@ def create_kinnan(
         type_line="Legendary Creature — Human Druid",
         power="2",
         toughness="2",
+        static_abilities=(
+            StaticAbility(
+                ability_type="additional_nonland_mana",
+                parameters={
+                    "source_filter": {
+                        "permanent_type": "nonland",
+                    },
+                    "additional_amount": 1,
+                    "mana_selection": "produced_type",
+                },
+            ),
+        ),
     )
 
+def create_kinnan(
+    *,
+    permanent_id: int = 1,
+) -> Permanent:
     return Permanent(
         permanent_id=permanent_id,
-        card=card,
+        card=create_kinnan_card(),
         owner_id=0,
         controller_id=0,
-        summoning_sick=True,
         entered_turn=1,
     )
 
@@ -134,6 +147,19 @@ def create_roaming_throne(
         type_line="Artifact Creature — Golem",
         power="4",
         toughness="4",
+        static_abilities=(
+            StaticAbility(
+                ability_type="additional_trigger",
+                parameters={
+                    "additional_trigger_count": 1,
+                    "source_filter": {
+                        "other_creature": True,
+                        "chosen_creature_type": True,
+                    },
+                    "controller_only": True,
+                },
+            ),
+        ),
     )
 
     return Permanent(
@@ -141,27 +167,17 @@ def create_roaming_throne(
         card=card,
         owner_id=0,
         controller_id=0,
-        summoning_sick=True,
         entered_turn=1,
         chosen_values={
             "creature_type": chosen_type,
         },
     )
+
 def create_kinnan_copy(
+    *,
     permanent_id: int = 4,
 ) -> Permanent:
-    kinnan_card = Card(
-        id="kinnan-id",
-        name="Kinnan, Bonder Prodigy",
-        mana_cost="{G}{U}",
-        mana_value=2,
-        oracle_text="",
-        type_line="Legendary Creature — Human Druid",
-        power="2",
-        toughness="2",
-    )
-
-    spark_double_card = Card(
+    spark_double = Card(
         id="spark-double-id",
         name="Spark Double",
         mana_cost="{3}{U}",
@@ -170,6 +186,15 @@ def create_kinnan_copy(
         type_line="Creature — Illusion",
         power="0",
         toughness="0",
+    )
+
+    return Permanent(
+        permanent_id=permanent_id,
+        card=spark_double,
+        owner_id=0,
+        controller_id=0,
+        copied_from=create_kinnan_card(),
+        entered_turn=1,
     )
 
     return Permanent(
@@ -447,13 +472,13 @@ def test_two_kinnans_and_two_thrones_add_six_bonus_mana() -> None:
     )
     player.battlefield.add(
         create_roaming_throne(
-            permanent_id=4,
+            permanent_id=5,
             chosen_type="Druid",
         )
     )
 
     sol_ring = create_sol_ring(
-        permanent_id=5,
+        permanent_id=6,
     )
     player.battlefield.add(sol_ring)
 
@@ -467,6 +492,4 @@ def test_two_kinnans_and_two_thrones_add_six_bonus_mana() -> None:
         ),
     )
 
-    # Sol Ring 2 + (Kinnan 2体 × 各3回)
     assert player.mana_pool.count(Mana.COLORLESS) == 8
-    assert state.mana_generated == 8

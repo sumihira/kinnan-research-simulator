@@ -14,10 +14,7 @@ from krs.game.phase import Phase
 from krs.actions.tap_permanent import TapPermanentAction
 from krs.mana.mana import Mana
 from krs.abilities.mana_ability import ManaAbility
-from krs.commanders.kinnan import (
-    choose_kinnan_bonus_mana,
-    count_kinnan_bonus_triggers,
-)
+from krs.engine.static_ability_engine import StaticAbilityEngine
 from krs.actions.cast_spell import CastSpellAction
 from krs.cards.card import Card
 from krs.actions.cast_commander import CastCommanderAction
@@ -41,6 +38,15 @@ class ActionExecutor:
     """
 
     OPENING_HAND_SIZE = 7
+
+    def __init__(
+        self,
+        static_ability_engine: StaticAbilityEngine | None = None,
+    ) -> None:
+        self._static_ability_engine = (
+            static_ability_engine
+            or StaticAbilityEngine()
+        )
 
     def execute(
         self,
@@ -333,23 +339,19 @@ class ActionExecutor:
 
         amount_generated = sum(produced_mana.values())
 
-        if permanent.is_nonland:
-            bonus_trigger_count = count_kinnan_bonus_triggers(
-                player.battlefield
+        additional_mana = (
+            self._static_ability_engine
+            .calculate_additional_nonland_mana(
+                source=permanent,
+                produced_mana=produced_mana,
+                selected_mana=action.mana,
+                battlefield=player.battlefield,
             )
+        )
 
-            if bonus_trigger_count > 0:
-                bonus_mana = choose_kinnan_bonus_mana(
-                    produced_mana=produced_mana,
-                    selected_mana=action.mana,
-                )
-
-                player.mana_pool.add(
-                    bonus_mana,
-                    bonus_trigger_count,
-                )
-
-                amount_generated += bonus_trigger_count
+        for mana, amount in additional_mana.items():
+            player.mana_pool.add(mana, amount)
+            amount_generated += amount
 
         state.mana_generated += amount_generated
         state.action_count += 1

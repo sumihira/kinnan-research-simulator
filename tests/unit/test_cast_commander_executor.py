@@ -8,6 +8,7 @@ from krs.game.phase import Phase
 from krs.game.player import Player
 from krs.mana.mana import Mana
 from krs.mana.mana_cost import ManaCost
+from krs.abilities.static import StaticAbility
 
 
 def create_kinnan() -> Card:

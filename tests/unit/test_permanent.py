@@ -1,5 +1,6 @@
 from krs.cards.card import Card
 from krs.game.permanent import Permanent
+from krs.abilities.static import StaticAbility
 
 
 def create_kinnan() -> Card:

@@ -7,6 +7,7 @@ from krs.game.game_state import GameState
 from krs.game.permanent import Permanent
 from krs.game.phase import Phase
 from krs.game.player import Player
+from krs.abilities.static import StaticAbility
 
 
 def create_kinnan() -> Card:
