@@ -12,6 +12,7 @@ from krs.ai.kinnan_hit_selector import KinnanHitSelector
 from krs.commanders.kinnan_ability import KINNAN_LOOK_COUNT
 from krs.game.player import Player
 from krs.ai.strategy_factory import StrategyFactory
+from krs.game.permanent import Permanent
 
 
 class GameEngine:
@@ -104,9 +105,9 @@ class GameEngine:
         """
         Start the active player's turn.
 
-        Resets turn-specific player state, untaps permanents,
-        and removes summoning sickness from permanents that
-        entered before the current turn.
+        Resets turn-specific player state, untaps permanents that
+        can untap normally, and removes summoning sickness from
+        permanents that entered before the current turn.
         """
         self._validate_running_game(state)
 
@@ -121,7 +122,8 @@ class GameEngine:
         player.mana_pool.clear()
 
         for permanent in player.battlefield:
-            permanent.tapped = False
+            if self._can_untap_during_untap_step(permanent):
+                permanent.tapped = False
 
             if permanent.entered_turn < state.turn_number:
                 permanent.summoning_sick = False
@@ -141,8 +143,7 @@ class GameEngine:
                 "Cannot advance beyond END phase. Start a new turn instead."
             )
 
-        next_phase = Turn.next_phase(state.phase)
-        state.phase = next_phase
+        state.phase = Turn.next_phase(state.phase)
 
         self._handle_phase_entry(state)
 
@@ -202,83 +203,20 @@ class GameEngine:
 
 
     @staticmethod
-    def _validate_running_game(state: GameState) -> None:
-        if not state.started:
-            raise ValueError("Game has not started.")
+    def _can_untap_during_untap_step(
+        permanent: Permanent,
+    ) -> bool:
+        for ability in permanent.effective_card.static_abilities:
+            if ability.ability_type != "skip_normal_untap":
+                continue
 
-        if state.game_over:
-            raise ValueError("Game has already finished.")
+            if (
+                ability.parameters.get("applies_during")
+                == "untap_step"
+            ):
+                return False
 
-        if not state.players:
-            raise ValueError("Game has no players.")
-    
-    def start_turn(self, state: GameState) -> None:
-        """
-        Start the active player's turn.
-
-        Resets turn-specific player state, untaps permanents,
-        and removes summoning sickness from permanents that
-        entered before the current turn.
-        """
-        self._validate_running_game(state)
-
-        player = state.active_player
-
-        if player is None:
-            raise ValueError("Active player could not be resolved.")
-
-        state.phase = Phase.UNTAP
-
-        player.land_played_this_turn = 0
-        player.mana_pool.clear()
-
-        for permanent in player.battlefield:
-            permanent.tapped = False
-
-            if permanent.entered_turn < state.turn_number:
-                permanent.summoning_sick = False
-
-
-    def advance_phase(self, state: GameState) -> None:
-        """
-        Advance to the next phase in the current turn.
-        """
-        self._validate_running_game(state)
-
-        if state.phase is Phase.END:
-            raise ValueError(
-                "Cannot advance beyond END phase. Start a new turn instead."
-            )
-
-        state.phase = Turn.next_phase(state.phase)
-
-
-    def end_turn(self, state: GameState) -> None:
-        """
-        End the current turn and begin the next turn.
-
-        Version 1 uses one active player, but active_player_index
-        is still advanced for future multiplayer support.
-        """
-        self._validate_running_game(state)
-
-        if state.phase is not Phase.END:
-            raise ValueError(
-                "A turn can only end during the END phase."
-            )
-
-        for player in state.players:
-            player.mana_pool.clear()
-
-        state.turn_number += 1
-
-        if state.players:
-            state.active_player_index = (
-                state.active_player_index + 1
-            ) % len(state.players)
-
-        self.start_turn(state)
-
+        return True
 
     @staticmethod
     def _validate_running_game(state: GameState) -> None:
@@ -290,6 +228,7 @@ class GameEngine:
 
         if not state.players:
             raise ValueError("Game has no players.")
+
         
     def create_kinnan_activation_action(
         self,
