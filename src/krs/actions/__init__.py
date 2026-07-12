@@ -3,6 +3,7 @@ from krs.actions.bottom_cards import BottomCardsAction
 from krs.actions.cast_commander import CastCommanderAction
 from krs.actions.mulligan import MulliganAction
 from krs.actions.return_commander import ReturnCommanderAction
+from krs.actions.activate_kinnan import ActivateKinnanAction
 
 __all__ = [
     "Action",
@@ -10,4 +11,5 @@ __all__ = [
     "CastCommanderAction",
     "MulliganAction",
     "ReturnCommanderAction",
+    "ActivateKinnanAction",
 ]

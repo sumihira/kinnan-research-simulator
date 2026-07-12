@@ -23,6 +23,13 @@ from krs.cards.card import Card
 from krs.actions.cast_commander import CastCommanderAction
 from krs.mana.mana_cost import ManaCost
 from krs.actions.return_commander import ReturnCommanderAction
+from krs.actions.activate_kinnan import ActivateKinnanAction
+from krs.commanders.kinnan import is_kinnan
+from krs.commanders.kinnan_ability import (
+    KINNAN_ACTIVATION_COST,
+    KINNAN_LOOK_COUNT,
+    find_selected_hit,
+)
 
 class ActionExecutor:
     """
@@ -68,6 +75,10 @@ class ActionExecutor:
 
         if isinstance(action, ReturnCommanderAction):
             self._execute_return_commander(state, action)
+            return
+
+        if isinstance(action, ActivateKinnanAction):
+            self._execute_activate_kinnan(state, action)
             return
 
         raise NotImplementedError(
@@ -736,3 +747,98 @@ class ActionExecutor:
         card_id: str,
     ) -> bool:
         return player.commander_card_id == card_id
+    
+    def _execute_activate_kinnan(
+        self,
+        state: GameState,
+        action: ActivateKinnanAction,
+    ) -> None:
+        player = self._get_player(
+            state,
+            action.player_id,
+        )
+
+        if not state.started:
+            raise ValueError(
+                "Cannot activate Kinnan before the game starts."
+            )
+
+        if state.game_over:
+            raise ValueError(
+                "Cannot activate Kinnan in a finished game."
+            )
+
+        source = self._find_permanent_on_battlefield(
+            player=player,
+            permanent_id=action.source_permanent_id,
+        )
+
+        if source.controller_id != player.player_id:
+            raise ValueError(
+                "Player does not control the Kinnan source."
+            )
+
+        if not is_kinnan(source):
+            raise ValueError(
+                "Source permanent is not Kinnan: "
+                f"{source.effective_card.name}"
+            )
+
+        if not player.mana_pool.can_pay(
+            KINNAN_ACTIVATION_COST
+        ):
+            raise ValueError(
+                "Kinnan activation cost cannot be paid."
+            )
+
+        reveal_count = min(
+            KINNAN_LOOK_COUNT,
+            len(player.library),
+        )
+
+        revealed_cards = player.library.peek(
+            reveal_count
+        )
+
+        selected_card = find_selected_hit(
+            revealed_cards=revealed_cards,
+            selected_card_id=action.selected_card_id,
+        )
+
+        # すべての検証完了後に状態を変更する
+        player.mana_pool.pay(
+            KINNAN_ACTIVATION_COST
+        )
+
+        removed_cards = player.library.draw_many(
+            reveal_count
+        )
+
+        remaining_cards = list(removed_cards)
+
+        if selected_card is not None:
+            remaining_cards.remove(selected_card)
+
+            permanent = Permanent(
+                permanent_id=state.next_permanent_id,
+                card=selected_card,
+                owner_id=player.player_id,
+                controller_id=player.player_id,
+                tapped=False,
+                summoning_sick=self._is_creature_card(
+                    selected_card
+                ),
+                entered_turn=state.turn_number,
+            )
+
+            player.battlefield.add(permanent)
+            state.next_permanent_id += 1
+
+        player.library.put_many_on_bottom(
+            remaining_cards
+        )
+
+        state.mana_spent += (
+            KINNAN_ACTIVATION_COST.total
+        )
+        state.action_count += 1
