@@ -1,5 +1,6 @@
 from krs.ai.kinnan_hit_selector import KinnanHitSelector
 from krs.cards.card import Card
+from krs.ai.evaluator import CardEvaluator
 
 
 def create_card(
@@ -8,13 +9,14 @@ def create_card(
     name: str,
     mana_value: int,
     type_line: str,
+    oracle_text: str = "",
 ) -> Card:
     return Card(
         id=card_id,
         name=name,
         mana_cost="",
         mana_value=mana_value,
-        oracle_text="",
+        oracle_text=oracle_text,
         type_line=type_line,
     )
 
@@ -181,3 +183,71 @@ def test_does_not_modify_revealed_cards() -> None:
     selector.select(cards)
 
     assert cards == original
+
+def test_selector_can_prefer_lower_mana_value_with_custom_score() -> None:
+    evaluator = CardEvaluator(
+        custom_scores={
+            "preferred-id": 10.0,
+        }
+    )
+    selector = KinnanHitSelector(
+        evaluator=evaluator,
+    )
+
+    high_mana = create_card(
+        card_id="high-id",
+        name="High Mana Creature",
+        mana_value=8,
+        type_line="Creature — Beast",
+    )
+    preferred = create_card(
+        card_id="preferred-id",
+        name="Preferred Creature",
+        mana_value=2,
+        type_line="Creature — Beast",
+    )
+
+    selected = selector.select(
+        [
+            high_mana,
+            preferred,
+        ]
+    )
+
+    assert selected is preferred
+
+def test_selector_can_prefer_untap_creature() -> None:
+    evaluator = CardEvaluator(
+        untap_bonus=5.0,
+    )
+    selector = KinnanHitSelector(
+        evaluator=evaluator,
+    )
+
+    normal_creature = create_card(
+        card_id="normal-id",
+        name="Normal Creature",
+        mana_value=7,
+        type_line="Creature — Beast",
+    )
+    untap_creature = create_card(
+        card_id="untap-id",
+        name="Untap Creature",
+        mana_value=4,
+        type_line="Creature — Whale",
+        oracle_text=(
+            "When this creature enters, "
+            "untap up to seven lands."
+        ),
+    )
+
+    selected = selector.select(
+        [
+            normal_creature,
+            untap_creature,
+        ]
+    )
+
+    # Normal: 7
+    # Untap: 4 + 5
+    assert selected is untap_creature

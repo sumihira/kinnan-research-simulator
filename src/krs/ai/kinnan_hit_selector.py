@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from krs.ai.evaluator import CardEvaluator
 from krs.cards.card import Card
 from krs.commanders.kinnan_ability import (
     is_valid_kinnan_hit,
@@ -10,13 +11,18 @@ from krs.commanders.kinnan_ability import (
 
 class KinnanHitSelector:
     """
-    Selects a card from Kinnan's revealed cards.
+    Selects the highest-scoring valid Kinnan hit.
 
-    Version 1 policy:
-    - only non-Human creature cards are valid;
-    - prefer the highest mana value;
-    - preserve reveal order when mana values are tied.
+    Reveal order is preserved when scores are tied.
     """
+
+    def __init__(
+        self,
+        evaluator: CardEvaluator | None = None,
+    ) -> None:
+        self._evaluator = (
+            evaluator or CardEvaluator()
+        )
 
     def select(
         self,
@@ -33,5 +39,9 @@ class KinnanHitSelector:
 
         return max(
             valid_hits,
-            key=lambda card: card.mana_value,
+            key=lambda card: (
+                self._evaluator
+                .evaluate(card)
+                .total
+            ),
         )
