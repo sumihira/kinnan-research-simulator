@@ -5,6 +5,8 @@ from krs.engine.game_engine import GameEngine
 from krs.game.game_state import GameState
 from krs.game.player import Player
 from krs.game.permanent import Permanent
+from pathlib import Path
+from krs.ai.strategy_factory import StrategyFactory
 
 
 def create_card(index: int) -> Card:
@@ -522,4 +524,113 @@ def test_create_kinnan_action_rejects_unknown_player() -> None:
             state,
             player_id=99,
             source_permanent_id=1,
+        )
+
+def write_test_strategy(
+    directory: Path,
+    *,
+    name: str,
+    preferred_card_id: str,
+) -> None:
+    directory.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    path = directory / f"{name}.yaml"
+
+    path.write_text(
+        f"""
+name: {name}
+
+weights:
+  mana_value: 1
+  mana_ability: 0
+  untap: 0
+  copy: 0
+  combo: 0
+
+custom_scores:
+  {preferred_card_id}: 20
+
+combo_card_ids: []
+""",
+        encoding="utf-8",
+    )
+
+def test_game_engine_can_be_created_from_strategy(
+    tmp_path: Path,
+) -> None:
+    strategy_directory = tmp_path / "strategies"
+
+    write_test_strategy(
+        strategy_directory,
+        name="preferred",
+        preferred_card_id="small-id",
+    )
+
+    factory = StrategyFactory(
+        strategy_directory=strategy_directory
+    )
+
+    engine = GameEngine.from_strategy(
+        "preferred",
+        strategy_factory=factory,
+    )
+
+    player = Player(player_id=0)
+    kinnan = add_kinnan_to_battlefield(player)
+
+    large = Card(
+        id="large-id",
+        name="Large Creature",
+        mana_cost="{8}",
+        mana_value=8,
+        oracle_text="",
+        type_line="Creature — Beast",
+    )
+    small = Card(
+        id="small-id",
+        name="Preferred Creature",
+        mana_cost="{2}",
+        mana_value=2,
+        oracle_text="",
+        type_line="Creature — Beast",
+    )
+
+    player.library.cards.extend(
+        [
+            large,
+            small,
+        ]
+    )
+
+    state = GameState(
+        players=[player],
+        started=True,
+        turn_number=3,
+    )
+
+    action = engine.create_kinnan_activation_action(
+        state,
+        player_id=0,
+        source_permanent_id=kinnan.permanent_id,
+    )
+
+    assert action.selected_card_id == small.id
+
+def test_game_engine_rejects_unknown_strategy(
+    tmp_path: Path,
+) -> None:
+    factory = StrategyFactory(
+        strategy_directory=tmp_path
+    )
+
+    with pytest.raises(
+        FileNotFoundError,
+        match="Strategy file not found",
+    ):
+        GameEngine.from_strategy(
+            "missing",
+            strategy_factory=factory,
         )

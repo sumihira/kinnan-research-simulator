@@ -1,6 +1,12 @@
+strategy: balanced
+
 games: 1000
 max_turns: 6
-parallel_workers: 1
 seed: null
-mulligan: true
+
+parallel_workers: 1
+mulligan:
+  enabled: true
 save_replays: false
+replay:
+  enabled: false

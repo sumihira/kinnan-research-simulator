@@ -3,6 +3,8 @@ from krs.ai.evaluator import CardEvaluator
 from krs.ai.kinnan_hit_selector import KinnanHitSelector
 from krs.ai.strategy_config import StrategyConfig
 from krs.ai.strategy_loader import StrategyLoader
+from krs.ai.strategy_factory import StrategyFactory
+
 
 __all__ = [
     "CardScore",
@@ -10,4 +12,5 @@ __all__ = [
     "KinnanHitSelector",
     "StrategyConfig",
     "StrategyLoader",
+    "StrategyFactory",
 ]

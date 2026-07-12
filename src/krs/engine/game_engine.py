@@ -11,6 +11,8 @@ from krs.actions.activate_kinnan import ActivateKinnanAction
 from krs.ai.kinnan_hit_selector import KinnanHitSelector
 from krs.commanders.kinnan_ability import KINNAN_LOOK_COUNT
 from krs.game.player import Player
+from krs.ai.strategy_factory import StrategyFactory
+
 
 class GameEngine:
     """
@@ -341,4 +343,26 @@ class GameEngine:
 
         raise ValueError(
             f"Player not found: {player_id}"
+        )
+    
+    @classmethod
+    def from_strategy(
+        cls,
+        strategy_name: str,
+        *,
+        action_executor: ActionExecutor | None = None,
+        strategy_factory: StrategyFactory | None = None,
+    ) -> GameEngine:
+        """
+        Create a GameEngine configured with the selected AI strategy.
+        """
+        factory = strategy_factory or StrategyFactory()
+
+        selector = factory.create_kinnan_hit_selector(
+            strategy_name
+        )
+
+        return cls(
+            action_executor=action_executor,
+            kinnan_hit_selector=selector,
         )
