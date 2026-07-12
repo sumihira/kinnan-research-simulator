@@ -28,8 +28,8 @@ def create_kinnan(
         mana_value=2,
         oracle_text="",
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
     return Permanent(
@@ -132,8 +132,8 @@ def create_roaming_throne(
         mana_value=4,
         oracle_text="",
         type_line="Artifact Creature — Golem",
-        power=4,
-        toughness=4,
+        power="4",
+        toughness="4",
     )
 
     return Permanent(
@@ -157,8 +157,8 @@ def create_kinnan_copy(
         mana_value=2,
         oracle_text="",
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
     spark_double_card = Card(
@@ -168,8 +168,8 @@ def create_kinnan_copy(
         mana_value=4,
         oracle_text="",
         type_line="Creature — Illusion",
-        power=0,
-        toughness=0,
+        power="0",
+        toughness="0",
     )
 
     return Permanent(

@@ -35,8 +35,8 @@ def create_mana_creature(
         mana_value=1,
         oracle_text="{T}: Add {G}.",
         type_line="Creature — Elf Druid",
-        power=1,
-        toughness=1,
+        power="1",
+        toughness="1",
         mana_abilities=(
             ManaAbility(
                 produced_mana={
@@ -68,8 +68,8 @@ def create_kinnan(
         mana_value=2,
         oracle_text="",
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
     return Permanent(

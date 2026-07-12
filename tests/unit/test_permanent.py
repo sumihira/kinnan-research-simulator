@@ -13,8 +13,8 @@ def create_kinnan() -> Card:
             "add one mana of any type that permanent produced."
         ),
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
 
@@ -29,8 +29,8 @@ def create_spark_double() -> Card:
             "of a creature or planeswalker you control."
         ),
         type_line="Creature — Illusion",
-        power=0,
-        toughness=0,
+        power="0",
+        toughness="0",
     )
 
 
@@ -282,8 +282,8 @@ def test_haste_allows_summoning_sick_creature_to_activate_tap_ability() -> None:
         mana_value=1,
         oracle_text="Haste",
         type_line="Creature — Elf Druid",
-        power=1,
-        toughness=1,
+        power="1",
+        toughness="1",
         keywords=("Haste",),
     )
 

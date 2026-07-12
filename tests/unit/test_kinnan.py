@@ -51,8 +51,8 @@ def create_roaming_throne(
         mana_value=4,
         oracle_text="",
         type_line="Artifact Creature — Golem",
-        power=4,
-        toughness=4,
+        power="4",
+        toughness="4",
     )
 
     chosen_values: dict[str, str] = {}
@@ -96,8 +96,8 @@ def test_is_kinnan_recognizes_copy() -> None:
         mana_value=2,
         oracle_text="",
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
     spark_double = create_permanent(
@@ -137,8 +137,8 @@ def test_count_multiple_kinnan_effects() -> None:
         mana_value=2,
         oracle_text="",
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
     battlefield: Zone[Permanent] = Zone()
@@ -329,8 +329,8 @@ def test_two_kinnans_and_one_throne_have_four_bonus_triggers() -> None:
         mana_value=2,
         oracle_text="",
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
     battlefield: Zone[Permanent] = Zone()

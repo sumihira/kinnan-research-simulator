@@ -17,8 +17,8 @@ def create_kinnan() -> Card:
         mana_value=2,
         oracle_text="",
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
 

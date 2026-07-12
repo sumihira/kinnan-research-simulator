@@ -145,8 +145,8 @@ def test_nonland_without_mana_ability_cannot_be_tapped_for_mana() -> None:
         mana_value=0,
         oracle_text="Flying",
         type_line="Artifact Creature — Thopter",
-        power=0,
-        toughness=2,
+        power="0",
+        toughness="2",
     )
 
     permanent = Permanent(
