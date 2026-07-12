@@ -1,2 +1,17 @@
-trigger_modifier:
-  additional_triggers: 1
+card_name: Roaming Throne
+
+abilities:
+  replacement:
+    - ability_type: choose_creature_type
+      event: enters_battlefield
+      parameters:
+        choice_type: creature_type
+
+  static:
+    - ability_type: additional_trigger
+      parameters:
+        additional_trigger_count: 1
+        source_filter:
+          other_creature: true
+          chosen_creature_type: true
+        controller_only: true

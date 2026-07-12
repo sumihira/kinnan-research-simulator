@@ -1,15 +1,23 @@
-strategy:
-  priority:
-    - Cast Kinnan
-    - Cast Mana Rock
-    - Activate Kinnan
+card_name: Kinnan, Bonder Prodigy
 
-combo:
-  prefer:
-    - Basalt Monolith
-    - Hullbreaker Horror
+abilities:
+  static:
+    - ability_type: additional_nonland_mana
+      parameters:
+        source_filter:
+          permanent_type: nonland
+        additional_amount: 1
+        mana_selection: produced_type
 
-evaluation:
-  weight:
-    mana: 1.5
-    combo: 2.0
+  activated:
+    - ability_type: activate_kinnan
+      mana_cost: "{5}{G}{U}"
+      requires_tap: false
+      parameters:
+        look_at: 5
+        hit_filter:
+          permanent: true
+          creature: true
+          non_human: true
+        hit_destination: battlefield
+        miss_destination: library_bottom_random
