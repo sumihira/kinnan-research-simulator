@@ -11,11 +11,10 @@ from krs.cards.card_config import CardConfig
 
 
 class CardConfigLoader:
-    """Loads card-specific definitions from YAML files."""
 
     def __init__(
         self,
-        config_directory: str | Path,
+        config_directory: Path,
     ) -> None:
         self._config_directory = Path(config_directory)
         self._configs_by_name: dict[str, CardConfig] | None = None
