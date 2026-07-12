@@ -9,6 +9,7 @@ from krs.game.player import Player
 from krs.mana.mana import Mana
 from krs.mana.mana_cost import ManaCost
 from krs.abilities.replacement import ReplacementAbility
+from krs.abilities.etb import EtbAbility
 
 
 def create_card(
@@ -499,5 +500,139 @@ def test_cast_roaming_throne_requires_creature_type_choice() -> None:
     assert player.mana_pool.total() == 4
     assert list(player.hand) == [roaming_throne]
     assert len(player.battlefield) == 0
+    assert state.mana_spent == 0
+    assert state.action_count == 0
+
+def test_cast_permanent_executes_draw_card_etb() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    etb_creature = Card(
+        id="etb-creature-id",
+        name="ETB Creature",
+        mana_cost="{2}",
+        mana_value=2,
+        oracle_text=(
+            "When this creature enters, draw two cards."
+        ),
+        type_line="Creature — Beast",
+        power="2",
+        toughness="2",
+        etb_abilities=(
+            EtbAbility(
+                ability_type="draw_card",
+                parameters={
+                    "amount": 2,
+                },
+            ),
+        ),
+    )
+    first_card = create_card(
+        card_id="first-draw-id",
+        name="First Draw",
+        mana_cost="{1}",
+        mana_value=1,
+        type_line="Artifact",
+    )
+    second_card = create_card(
+        card_id="second-draw-id",
+        name="Second Draw",
+        mana_cost="{1}",
+        mana_value=1,
+        type_line="Artifact",
+    )
+
+    player.hand.add(etb_creature)
+    player.library.cards.extend(
+        [
+            first_card,
+            second_card,
+        ]
+    )
+    player.mana_pool.add(
+        Mana.COLORLESS,
+        2,
+    )
+
+    ActionExecutor().execute(
+        state,
+        CastSpellAction(
+            player_id=0,
+            turn_number=1,
+            card=etb_creature,
+            cost=ManaCost(generic=2),
+        ),
+    )
+
+    permanent = next(iter(player.battlefield))
+
+    assert permanent.effective_card is etb_creature
+    assert etb_creature not in player.hand
+    assert first_card in player.hand
+    assert second_card in player.hand
+    assert len(player.library) == 0
+    assert player.mana_pool.total() == 0
+    assert state.mana_spent == 2
+    assert state.action_count == 1
+
+
+def test_cast_etb_validation_failure_preserves_state() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    etb_creature = Card(
+        id="etb-creature-id",
+        name="ETB Creature",
+        mana_cost="{2}",
+        mana_value=2,
+        oracle_text=(
+            "When this creature enters, draw two cards."
+        ),
+        type_line="Creature — Beast",
+        power="2",
+        toughness="2",
+        etb_abilities=(
+            EtbAbility(
+                ability_type="draw_card",
+                parameters={
+                    "amount": 2,
+                },
+            ),
+        ),
+    )
+    only_card = create_card(
+        card_id="only-card-id",
+        name="Only Card",
+        mana_cost="{1}",
+        mana_value=1,
+        type_line="Artifact",
+    )
+
+    player.hand.add(etb_creature)
+    player.library.cards.append(only_card)
+    player.mana_pool.add(
+        Mana.COLORLESS,
+        2,
+    )
+
+    with pytest.raises(
+        IndexError,
+        match="Not enough cards in library for ETB draw",
+    ):
+        ActionExecutor().execute(
+            state,
+            CastSpellAction(
+                player_id=0,
+                turn_number=1,
+                card=etb_creature,
+                cost=ManaCost(generic=2),
+            ),
+        )
+
+    assert list(player.hand) == [etb_creature]
+    assert list(player.library) == [only_card]
+    assert len(player.battlefield) == 0
+    assert player.mana_pool.total() == 2
+    assert state.next_permanent_id == 1
     assert state.mana_spent == 0
     assert state.action_count == 0

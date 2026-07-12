@@ -33,6 +33,7 @@ from krs.engine.ability_executor import AbilityExecutor
 from krs.engine.replacement_ability_engine import (
     ReplacementAbilityEngine,
 )
+from krs.engine.etb_ability_engine import EtbAbilityEngine
 
 class ActionExecutor:
     """
@@ -50,6 +51,7 @@ class ActionExecutor:
         replacement_ability_engine: (
             ReplacementAbilityEngine | None
         ) = None,
+        etb_ability_engine: EtbAbilityEngine | None = None,
     ) -> None:
         self._static_ability_engine = (
             static_ability_engine
@@ -62,6 +64,10 @@ class ActionExecutor:
         self._replacement_ability_engine = (
             replacement_ability_engine
             or ReplacementAbilityEngine()
+        )
+        self._etb_ability_engine = (
+            etb_ability_engine
+            or EtbAbilityEngine()
         )
 
     def execute(
@@ -528,10 +534,20 @@ class ActionExecutor:
             chosen_values=action.chosen_values,
         )
 
+        self._etb_ability_engine.validate(
+            permanent=permanent,
+            controller=player,
+        )
+
         player.mana_pool.pay(action.cost)
 
         player.hand.remove(card)
         player.battlefield.add(permanent)
+
+        self._etb_ability_engine.execute(
+            permanent=permanent,
+            controller=player,
+        )
 
         state.next_permanent_id += 1
         state.mana_spent += action.cost.total
