@@ -30,6 +30,9 @@ from krs.commanders.kinnan_ability import (
 from krs.actions.activate_ability import ActivateAbilityAction
 from krs.abilities.activated import ActivatedAbility
 from krs.engine.ability_executor import AbilityExecutor
+from krs.engine.replacement_ability_engine import (
+    ReplacementAbilityEngine,
+)
 
 class ActionExecutor:
     """
@@ -44,6 +47,9 @@ class ActionExecutor:
         self,
         static_ability_engine: StaticAbilityEngine | None = None,
         ability_executor: AbilityExecutor | None = None,
+        replacement_ability_engine: (
+            ReplacementAbilityEngine | None
+        ) = None,
     ) -> None:
         self._static_ability_engine = (
             static_ability_engine
@@ -52,6 +58,10 @@ class ActionExecutor:
         self._ability_executor = (
             ability_executor
             or AbilityExecutor()
+        )
+        self._replacement_ability_engine = (
+            replacement_ability_engine
+            or ReplacementAbilityEngine()
         )
 
     def execute(
@@ -498,14 +508,10 @@ class ActionExecutor:
                 f"{card.name}"
             )
 
-        # 支払い可能性を先に検証する。
-        # pay() は失敗時にManaPoolを変更しない。
         if not player.mana_pool.can_pay(action.cost):
             raise ValueError(
                 f"Mana cost cannot be paid for: {card.name}"
             )
-
-        player.mana_pool.pay(action.cost)
 
         permanent = Permanent(
             permanent_id=state.next_permanent_id,
@@ -516,6 +522,13 @@ class ActionExecutor:
             summoning_sick=self._is_creature_card(card),
             entered_turn=state.turn_number,
         )
+
+        self._replacement_ability_engine.apply_enters_battlefield_replacements(
+            permanent=permanent,
+            chosen_values=action.chosen_values,
+        )
+
+        player.mana_pool.pay(action.cost)
 
         player.hand.remove(card)
         player.battlefield.add(permanent)

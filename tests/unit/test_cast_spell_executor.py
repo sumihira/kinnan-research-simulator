@@ -8,6 +8,7 @@ from krs.game.phase import Phase
 from krs.game.player import Player
 from krs.mana.mana import Mana
 from krs.mana.mana_cost import ManaCost
+from krs.abilities.replacement import ReplacementAbility
 
 
 def create_card(
@@ -401,3 +402,102 @@ def test_spell_cannot_be_cast_after_game_end() -> None:
                 cost=ManaCost(generic=1),
             ),
         )
+
+def test_cast_roaming_throne_stores_chosen_creature_type() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    roaming_throne = Card(
+        id="roaming-throne-id",
+        name="Roaming Throne",
+        mana_cost="{4}",
+        mana_value=4,
+        oracle_text=(
+            "As Roaming Throne enters, choose a creature type."
+        ),
+        type_line="Artifact Creature — Golem",
+        power="4",
+        toughness="4",
+        replacement_abilities=(
+            ReplacementAbility(
+                ability_type="choose_creature_type",
+                event="enters_battlefield",
+                parameters={
+                    "choice_type": "creature_type",
+                },
+            ),
+        ),
+    )
+    player.hand.add(roaming_throne)
+    player.mana_pool.add(Mana.COLORLESS, 4)
+
+    ActionExecutor().execute(
+        state,
+        CastSpellAction(
+            player_id=0,
+            turn_number=1,
+            card=roaming_throne,
+            cost=ManaCost(generic=4),
+            chosen_values={
+                "creature_type": "Druid",
+            },
+        ),
+    )
+
+    permanent = next(iter(player.battlefield))
+
+    assert permanent.effective_card is roaming_throne
+    assert permanent.chosen_values == {
+        "creature_type": "Druid",
+    }
+    assert player.mana_pool.total() == 0
+    assert len(player.hand) == 0
+    assert state.mana_spent == 4
+    assert state.action_count == 1
+
+
+def test_cast_roaming_throne_requires_creature_type_choice() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    roaming_throne = Card(
+        id="roaming-throne-id",
+        name="Roaming Throne",
+        mana_cost="{4}",
+        mana_value=4,
+        oracle_text="",
+        type_line="Artifact Creature — Golem",
+        power="4",
+        toughness="4",
+        replacement_abilities=(
+            ReplacementAbility(
+                ability_type="choose_creature_type",
+                event="enters_battlefield",
+                parameters={
+                    "choice_type": "creature_type",
+                },
+            ),
+        ),
+    )
+    player.hand.add(roaming_throne)
+    player.mana_pool.add(Mana.COLORLESS, 4)
+
+    with pytest.raises(
+        ValueError,
+        match="Required chosen value was not provided",
+    ):
+        ActionExecutor().execute(
+            state,
+            CastSpellAction(
+                player_id=0,
+                turn_number=1,
+                card=roaming_throne,
+                cost=ManaCost(generic=4),
+            ),
+        )
+
+    assert player.mana_pool.total() == 4
+    assert list(player.hand) == [roaming_throne]
+    assert len(player.battlefield) == 0
+    assert state.mana_spent == 0
+    assert state.action_count == 0
