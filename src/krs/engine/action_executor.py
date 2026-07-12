@@ -20,6 +20,8 @@ from krs.commanders.kinnan import (
 )
 from krs.actions.cast_spell import CastSpellAction
 from krs.cards.card import Card
+from krs.actions.cast_commander import CastCommanderAction
+from krs.mana.mana_cost import ManaCost
 
 class ActionExecutor:
     """
@@ -57,6 +59,10 @@ class ActionExecutor:
 
         if isinstance(action, CastSpellAction):
             self._execute_cast_spell(state, action)
+            return
+
+        if isinstance(action, CastCommanderAction):
+            self._execute_cast_commander(state, action)
             return
 
         raise NotImplementedError(
@@ -529,4 +535,109 @@ class ActionExecutor:
 
         return bool(
             cls._card_types(card) & permanent_types
+        )
+
+    def _execute_cast_commander(
+        self,
+        state: GameState,
+        action: CastCommanderAction,
+    ) -> None:
+        player = self._get_player(
+            state,
+            action.player_id,
+        )
+
+        if not state.started:
+            raise ValueError(
+                "Cannot cast a commander before the game starts."
+            )
+
+        if state.game_over:
+            raise ValueError(
+                "Cannot cast a commander in a finished game."
+            )
+
+        if state.phase is not Phase.MAIN:
+            raise ValueError(
+                "Commander can only be cast during the main phase."
+            )
+
+        commander = self._find_card_in_command_zone(
+            player=player,
+            card_id=action.card.id,
+        )
+
+        if not self._is_permanent_card(commander):
+            raise ValueError(
+                "Only permanent commanders are currently supported: "
+                f"{commander.name}"
+            )
+
+        total_cost = self._apply_commander_tax(
+            base_cost=action.base_cost,
+            commander_cast_count=player.commander_cast_count,
+        )
+
+        if not player.mana_pool.can_pay(total_cost):
+            raise ValueError(
+                f"Commander mana cost cannot be paid for: "
+                f"{commander.name}"
+            )
+
+        player.mana_pool.pay(total_cost)
+
+        permanent = Permanent(
+            permanent_id=state.next_permanent_id,
+            card=commander,
+            owner_id=player.player_id,
+            controller_id=player.player_id,
+            tapped=False,
+            summoning_sick=self._is_creature_card(commander),
+            entered_turn=state.turn_number,
+        )
+
+        player.command.remove(commander)
+        player.battlefield.add(permanent)
+
+        player.commander_cast_count += 1
+
+        state.next_permanent_id += 1
+        state.mana_spent += total_cost.total
+        state.action_count += 1
+
+    @staticmethod
+    def _find_card_in_command_zone(
+        player: Player,
+        card_id: str,
+    ) -> Card:
+        for card in player.command:
+            if card.id == card_id:
+                return card
+
+        raise ValueError(
+            f"Commander not found in command zone: {card_id}"
+        )
+
+
+    @staticmethod
+    def _apply_commander_tax(
+        base_cost: ManaCost,
+        commander_cast_count: int,
+    ) -> ManaCost:
+        if commander_cast_count < 0:
+            raise ValueError(
+                "Commander cast count must not be negative."
+            )
+
+        return ManaCost(
+            generic=(
+                base_cost.generic
+                + commander_cast_count * 2
+            ),
+            white=base_cost.white,
+            blue=base_cost.blue,
+            black=base_cost.black,
+            red=base_cost.red,
+            green=base_cost.green,
+            colorless=base_cost.colorless,
         )

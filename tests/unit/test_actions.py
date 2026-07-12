@@ -188,3 +188,18 @@ def test_tap_permanent_action_defaults_to_first_ability() -> None:
     )
 
     assert action.ability_index == 0
+
+def test_tap_permanent_action_rejects_negative_ability_index() -> None:
+    permanent = create_permanent()
+
+    with pytest.raises(
+        ValueError,
+        match="Ability index must not be negative",
+    ):
+        TapPermanentAction(
+            player_id=0,
+            turn_number=2,
+            permanent=permanent,
+            mana=Mana.COLORLESS,
+            ability_index=-1,
+        )

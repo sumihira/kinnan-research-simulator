@@ -74,3 +74,8 @@ def test_player_starts_with_zero_mulligans() -> None:
     player = Player(player_id=0)
 
     assert player.mulligan_count == 0
+
+def test_player_starts_with_zero_commander_casts() -> None:
+    player = Player(player_id=0)
+
+    assert player.commander_cast_count == 0
