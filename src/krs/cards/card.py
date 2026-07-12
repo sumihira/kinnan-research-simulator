@@ -20,8 +20,8 @@ class Card:
     oracle_text: str
     type_line: str
 
-    power: int | None = None
-    toughness: int | None = None
+    power: str | None = None
+    toughness: str | None = None
 
     mana_abilities: tuple[ManaAbility, ...] = ()
     keywords: tuple[str, ...] = ()

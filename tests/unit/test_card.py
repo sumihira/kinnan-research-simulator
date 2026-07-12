@@ -15,8 +15,8 @@ def create_kinnan() -> Card:
             "add one mana of any type that permanent produced."
         ),
         type_line="Legendary Creature — Human Druid",
-        power=2,
-        toughness=2,
+        power="2",
+        toughness="2",
     )
 
 
@@ -28,8 +28,8 @@ def test_card_can_be_created() -> None:
     assert card.mana_cost == "{G}{U}"
     assert card.mana_value == 2
     assert card.type_line == "Legendary Creature — Human Druid"
-    assert card.power == 2
-    assert card.toughness == 2
+    assert card.power == "2"
+    assert card.toughness == "2"
 
 
 def test_card_without_power_and_toughness() -> None:
@@ -97,9 +97,24 @@ def test_card_can_store_keywords() -> None:
         mana_value=1,
         oracle_text="Haste",
         type_line="Creature — Elf Druid",
-        power=1,
-        toughness=1,
+        power="1",
+        toughness="1",
         keywords=("Haste",),
     )
 
     assert card.keywords == ("Haste",)
+
+def test_card_can_store_non_numeric_power_and_toughness() -> None:
+    card = Card(
+        id="variable-creature-id",
+        name="Variable Creature",
+        mana_cost="{3}",
+        mana_value=3,
+        oracle_text="",
+        type_line="Creature — Shapeshifter",
+        power="*",
+        toughness="1+*",
+    )
+
+    assert card.power == "*"
+    assert card.toughness == "1+*"
