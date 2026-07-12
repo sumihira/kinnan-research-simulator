@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from krs.abilities.activated import ActivatedAbility
+from krs.abilities.etb import EtbAbility
 from krs.abilities.mana_ability import ManaAbility
 from krs.abilities.replacement import ReplacementAbility
 from krs.abilities.static import StaticAbility
@@ -124,6 +125,20 @@ class AbilityFactory:
             event=AbilityFactory._required_string(
                 definition,
                 "event",
+            ),
+            parameters=AbilityFactory._parameters(definition),
+        )
+
+    @staticmethod
+    def create_etb_ability(
+        definition: Mapping[str, object],
+    ) -> EtbAbility:
+        """Create an ETB ability from a YAML definition."""
+
+        return EtbAbility(
+            ability_type=AbilityFactory._required_string(
+                definition,
+                "ability_type",
             ),
             parameters=AbilityFactory._parameters(definition),
         )

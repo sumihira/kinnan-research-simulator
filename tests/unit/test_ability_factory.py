@@ -5,6 +5,7 @@ from types import MappingProxyType
 import pytest
 
 from krs.abilities.activated import ActivatedAbility
+from krs.abilities.etb import EtbAbility
 from krs.abilities.replacement import ReplacementAbility
 from krs.abilities.static import StaticAbility
 from krs.abilities.triggered import TriggeredAbility
@@ -280,6 +281,21 @@ def test_creates_triggered_ability() -> None:
         "amount": 1,
     }
 
+def test_creates_etb_ability() -> None:
+    ability = AbilityFactory.create_etb_ability(
+        {
+            "ability_type": "draw_card",
+            "parameters": {
+                "amount": 1,
+            },
+        }
+    )
+
+    assert isinstance(ability, EtbAbility)
+    assert ability.ability_type == "draw_card"
+    assert ability.parameters == {
+        "amount": 1,
+    }
 
 def test_creates_replacement_ability() -> None:
     ability = AbilityFactory.create_replacement_ability(
@@ -306,6 +322,7 @@ def test_creates_replacement_ability() -> None:
         AbilityFactory.create_activated_ability,
         AbilityFactory.create_static_ability,
         AbilityFactory.create_triggered_ability,
+        AbilityFactory.create_etb_ability,
         AbilityFactory.create_replacement_ability,
     ],
 )
@@ -380,6 +397,10 @@ def test_rejects_non_mapping_parameters() -> None:
         TriggeredAbility(
             ability_type="test_triggered",
             event="test_event",
+            parameters={"value": 1},
+        ),
+        EtbAbility(
+            ability_type="test_etb",
             parameters={"value": 1},
         ),
         ReplacementAbility(
