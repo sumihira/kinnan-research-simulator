@@ -34,6 +34,9 @@ from krs.engine.replacement_ability_engine import (
     ReplacementAbilityEngine,
 )
 from krs.engine.etb_ability_engine import EtbAbilityEngine
+from krs.engine.kinnan_ability_executor import (
+    KinnanAbilityExecutor,
+)
 
 class ActionExecutor:
     """
@@ -52,6 +55,9 @@ class ActionExecutor:
             ReplacementAbilityEngine | None
         ) = None,
         etb_ability_engine: EtbAbilityEngine | None = None,
+        kinnan_ability_executor: (
+            KinnanAbilityExecutor | None
+        ) = None,
     ) -> None:
         self._static_ability_engine = (
             static_ability_engine
@@ -68,6 +74,10 @@ class ActionExecutor:
         self._etb_ability_engine = (
             etb_ability_engine
             or EtbAbilityEngine()
+        )
+        self._kinnan_ability_executor = (
+            kinnan_ability_executor
+            or KinnanAbilityExecutor()
         )
 
     def execute(

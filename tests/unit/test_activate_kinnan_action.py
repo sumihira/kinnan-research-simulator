@@ -54,3 +54,26 @@ def test_activate_kinnan_rejects_empty_selected_card_id() -> None:
             source_permanent_id=1,
             selected_card_id="",
         )
+
+def test_activate_kinnan_action_stores_activation_values() -> None:
+    action = ActivateKinnanAction(
+        player_id=0,
+        turn_number=1,
+        source_permanent_id=10,
+        selected_card_id="hit-card-id",
+    )
+
+    assert action.player_id == 0
+    assert action.turn_number == 1
+    assert action.source_permanent_id == 10
+    assert action.selected_card_id == "hit-card-id"
+
+def test_activate_kinnan_action_allows_no_selected_card() -> None:
+    action = ActivateKinnanAction(
+        player_id=0,
+        turn_number=1,
+        source_permanent_id=10,
+        selected_card_id=None,
+    )
+
+    assert action.selected_card_id is None
