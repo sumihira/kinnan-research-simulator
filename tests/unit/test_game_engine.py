@@ -4,6 +4,7 @@ from krs.cards.card import Card
 from krs.engine.game_engine import GameEngine
 from krs.game.game_state import GameState
 from krs.game.player import Player
+from krs.game.permanent import Permanent
 
 
 def create_card(index: int) -> Card:
@@ -316,3 +317,209 @@ def test_start_game_cannot_be_called_twice() -> None:
     assert card_names(player.hand) == first_hand
     assert card_names(player.library) == remaining_library
     assert state.action_count == 1
+
+def add_kinnan_to_battlefield(
+    player: Player,
+) -> Permanent:
+    kinnan = Card(
+        id="kinnan-id",
+        name="Kinnan, Bonder Prodigy",
+        mana_cost="{G}{U}",
+        mana_value=2,
+        oracle_text="",
+        type_line="Legendary Creature — Human Druid",
+        power=2,
+        toughness=2,
+    )
+
+    permanent = Permanent(
+        permanent_id=1,
+        card=kinnan,
+        owner_id=player.player_id,
+        controller_id=player.player_id,
+        summoning_sick=True,
+        entered_turn=1,
+    )
+
+    player.battlefield.add(permanent)
+
+    return permanent
+
+def test_create_kinnan_action_selects_highest_mana_value_hit() -> None:
+    player = Player(player_id=0)
+    kinnan = add_kinnan_to_battlefield(player)
+
+    small = Card(
+        id="small-id",
+        name="Small Creature",
+        mana_cost="{2}",
+        mana_value=2,
+        oracle_text="",
+        type_line="Creature — Beast",
+    )
+    large = Card(
+        id="large-id",
+        name="Large Creature",
+        mana_cost="{7}",
+        mana_value=7,
+        oracle_text="",
+        type_line="Creature — Whale",
+    )
+
+    player.library.cards.extend(
+        [
+            small,
+            large,
+        ]
+    )
+
+    state = GameState(
+        players=[player],
+        started=True,
+        turn_number=3,
+    )
+
+    action = GameEngine().create_kinnan_activation_action(
+        state,
+        player_id=0,
+        source_permanent_id=kinnan.permanent_id,
+    )
+
+    assert action.player_id == 0
+    assert action.turn_number == 3
+    assert action.source_permanent_id == 1
+    assert action.selected_card_id == large.id
+
+def test_create_kinnan_action_selects_none_without_valid_hit() -> None:
+    player = Player(player_id=0)
+    kinnan = add_kinnan_to_battlefield(player)
+
+    player.library.cards.extend(
+        [
+            Card(
+                id="artifact-id",
+                name="Artifact",
+                mana_cost="{4}",
+                mana_value=4,
+                oracle_text="",
+                type_line="Artifact",
+            ),
+            Card(
+                id="human-id",
+                name="Human",
+                mana_cost="{6}",
+                mana_value=6,
+                oracle_text="",
+                type_line="Creature — Human",
+            ),
+        ]
+    )
+
+    state = GameState(
+        players=[player],
+        started=True,
+        turn_number=3,
+    )
+
+    action = GameEngine().create_kinnan_activation_action(
+        state,
+        player_id=0,
+        source_permanent_id=kinnan.permanent_id,
+    )
+
+    assert action.selected_card_id is None
+
+def test_create_kinnan_action_only_considers_top_five() -> None:
+    player = Player(player_id=0)
+    kinnan = add_kinnan_to_battlefield(player)
+
+    top_five = [
+        Card(
+            id=f"artifact-{index}",
+            name=f"Artifact {index}",
+            mana_cost="{1}",
+            mana_value=1,
+            oracle_text="",
+            type_line="Artifact",
+        )
+        for index in range(5)
+    ]
+
+    sixth = Card(
+        id="sixth-creature",
+        name="Sixth Creature",
+        mana_cost="{10}",
+        mana_value=10,
+        oracle_text="",
+        type_line="Creature — Beast",
+    )
+
+    player.library.cards.extend(
+        [
+            *top_five,
+            sixth,
+        ]
+    )
+
+    state = GameState(
+        players=[player],
+        started=True,
+        turn_number=3,
+    )
+
+    action = GameEngine().create_kinnan_activation_action(
+        state,
+        player_id=0,
+        source_permanent_id=kinnan.permanent_id,
+    )
+
+    assert action.selected_card_id is None
+
+def test_create_kinnan_action_does_not_modify_game_state() -> None:
+    player = Player(player_id=0)
+    kinnan = add_kinnan_to_battlefield(player)
+
+    creature = Card(
+        id="creature-id",
+        name="Creature",
+        mana_cost="{5}",
+        mana_value=5,
+        oracle_text="",
+        type_line="Creature — Beast",
+    )
+
+    player.library.cards.append(creature)
+
+    state = GameState(
+        players=[player],
+        started=True,
+        turn_number=3,
+    )
+
+    original_library = list(player.library)
+    original_action_count = state.action_count
+
+    GameEngine().create_kinnan_activation_action(
+        state,
+        player_id=0,
+        source_permanent_id=kinnan.permanent_id,
+    )
+
+    assert list(player.library) == original_library
+    assert state.action_count == original_action_count
+
+def test_create_kinnan_action_rejects_unknown_player() -> None:
+    state = GameState(
+        players=[Player(player_id=0)],
+        started=True,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Player not found: 99",
+    ):
+        GameEngine().create_kinnan_activation_action(
+            state,
+            player_id=99,
+            source_permanent_id=1,
+        )
