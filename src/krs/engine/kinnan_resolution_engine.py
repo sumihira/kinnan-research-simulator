@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import random
+from collections.abc import Mapping
+
 from krs.actions.activate_kinnan import ActivateKinnanAction
 from krs.cards.card import Card
 from krs.commanders.kinnan import is_kinnan
@@ -7,6 +10,9 @@ from krs.commanders.kinnan_ability import (
     KINNAN_ACTIVATION_COST,
     KINNAN_LOOK_COUNT,
     find_selected_hit,
+)
+from krs.engine.battlefield_entry_engine import (
+    BattlefieldEntryEngine,
 )
 from krs.game.game_state import GameState
 from krs.game.permanent import Permanent
@@ -16,13 +22,24 @@ from krs.game.player import Player
 class KinnanResolutionEngine:
     """Validates and resolves Kinnan's activated ability."""
 
+    def __init__(
+        self,
+        battlefield_entry_engine: (
+            BattlefieldEntryEngine | None
+        ) = None,
+    ) -> None:
+        self._battlefield_entry_engine = (
+            battlefield_entry_engine
+            or BattlefieldEntryEngine()
+        )
+
     def execute(
         self,
         *,
         state: GameState,
         action: ActivateKinnanAction,
     ) -> None:
-        """Resolve a Kinnan activation without changing behavior."""
+        """Resolve Kinnan's activated ability."""
         player = self._get_player(
             state=state,
             player_id=action.player_id,
@@ -65,7 +82,6 @@ class KinnanResolutionEngine:
             KINNAN_LOOK_COUNT,
             len(player.library),
         )
-
         revealed_cards = player.library.peek(
             reveal_count
         )
@@ -74,6 +90,19 @@ class KinnanResolutionEngine:
             revealed_cards=revealed_cards,
             selected_card_id=action.selected_card_id,
         )
+
+        selected_permanent = self._create_selected_permanent(
+            state=state,
+            player=player,
+            selected_card=selected_card,
+        )
+
+        if selected_permanent is not None:
+            self._battlefield_entry_engine.validate(
+                permanent=selected_permanent,
+                controller=player,
+                chosen_values=self._chosen_values(action),
+            )
 
         player.mana_pool.pay(
             KINNAN_ACTIVATION_COST
@@ -87,15 +116,22 @@ class KinnanResolutionEngine:
         if selected_card is not None:
             remaining_cards.remove(selected_card)
 
-            self._put_selected_card_onto_battlefield(
-                state=state,
-                player=player,
-                selected_card=selected_card,
-            )
+        rng = self._create_resolution_rng(
+            state=state,
+            action=action,
+        )
+        rng.shuffle(remaining_cards)
 
         player.library.put_many_on_bottom(
             remaining_cards
         )
+
+        if selected_permanent is not None:
+            self._battlefield_entry_engine.enter(
+                state=state,
+                controller=player,
+                permanent=selected_permanent,
+            )
 
         if selected_card is not None:
             state.kinnan_chain.record_hit(
@@ -110,14 +146,17 @@ class KinnanResolutionEngine:
         state.action_count += 1
 
     @classmethod
-    def _put_selected_card_onto_battlefield(
+    def _create_selected_permanent(
         cls,
         *,
         state: GameState,
         player: Player,
-        selected_card: Card,
-    ) -> None:
-        permanent = Permanent(
+        selected_card: Card | None,
+    ) -> Permanent | None:
+        if selected_card is None:
+            return None
+
+        return Permanent(
             permanent_id=state.next_permanent_id,
             card=selected_card,
             owner_id=player.player_id,
@@ -129,8 +168,40 @@ class KinnanResolutionEngine:
             entered_turn=state.turn_number,
         )
 
-        player.battlefield.add(permanent)
-        state.next_permanent_id += 1
+    @staticmethod
+    def _chosen_values(
+        action: ActivateKinnanAction,
+    ) -> Mapping[str, str]:
+        chosen_values = getattr(
+            action,
+            "chosen_values",
+            {},
+        )
+
+        if not isinstance(chosen_values, Mapping):
+            raise ValueError(
+                "Kinnan chosen_values must be a mapping."
+            )
+
+        return chosen_values
+
+    @staticmethod
+    def _create_resolution_rng(
+        *,
+        state: GameState,
+        action: ActivateKinnanAction,
+    ) -> random.Random:
+        if state.seed is None:
+            return random.Random()
+
+        derived_seed = (
+            state.seed
+            + action.player_id
+            + action.turn_number
+            + state.action_count
+        )
+
+        return random.Random(derived_seed)
 
     @staticmethod
     def _get_player(

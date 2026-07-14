@@ -40,6 +40,10 @@ from krs.engine.kinnan_ability_executor import (
 from krs.engine.kinnan_resolution_engine import (
     KinnanResolutionEngine,
 )
+from krs.engine.battlefield_entry_engine import (
+    BattlefieldEntryEngine,
+)
+
 
 class ActionExecutor:
     """
@@ -58,11 +62,11 @@ class ActionExecutor:
             ReplacementAbilityEngine | None
         ) = None,
         etb_ability_engine: EtbAbilityEngine | None = None,
-        kinnan_ability_executor: (
-            KinnanAbilityExecutor | None
-        ) = None,
         kinnan_resolution_engine: (
             KinnanResolutionEngine | None
+        ) = None,
+        battlefield_entry_engine: (
+            BattlefieldEntryEngine | None
         ) = None,
     ) -> None:
         self._static_ability_engine = (
@@ -81,13 +85,22 @@ class ActionExecutor:
             etb_ability_engine
             or EtbAbilityEngine()
         )
-        self._kinnan_ability_executor = (
-            kinnan_ability_executor
-            or KinnanAbilityExecutor()
+        self._battlefield_entry_engine = (
+            battlefield_entry_engine
+            or BattlefieldEntryEngine(
+                replacement_ability_engine=(
+                    self._replacement_ability_engine
+                ),
+                etb_ability_engine=self._etb_ability_engine,
+            )
         )
         self._kinnan_resolution_engine = (
             kinnan_resolution_engine
-            or KinnanResolutionEngine()
+            or KinnanResolutionEngine(
+                battlefield_entry_engine=(
+                    self._battlefield_entry_engine
+                ),
+            )
         )
 
     def execute(
@@ -549,27 +562,21 @@ class ActionExecutor:
             entered_turn=state.turn_number,
         )
 
-        self._replacement_ability_engine.apply_enters_battlefield_replacements(
+        self._battlefield_entry_engine.validate(
             permanent=permanent,
+            controller=player,
             chosen_values=action.chosen_values,
         )
 
-        self._etb_ability_engine.validate(
-            permanent=permanent,
-            controller=player,
-        )
-
         player.mana_pool.pay(action.cost)
-
         player.hand.remove(card)
-        player.battlefield.add(permanent)
 
-        self._etb_ability_engine.execute(
-            permanent=permanent,
+        self._battlefield_entry_engine.enter(
+            state=state,
             controller=player,
+            permanent=permanent,
         )
 
-        state.next_permanent_id += 1
         state.mana_spent += action.cost.total
         state.action_count += 1
 

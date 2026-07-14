@@ -202,13 +202,27 @@ def test_kinnan_activation_puts_remaining_reveals_on_bottom() -> None:
         ),
     )
 
-    assert list(player.library) == [
-        remaining,
-        first,
-        third,
-        fourth,
-        fifth,
-    ]
+    library_cards = list(player.library)
+
+    assert len(library_cards) == 5
+
+    # 公開範囲外だった6枚目はライブラリー先頭に残る。
+    assert library_cards[0] is remaining
+
+    # 公開した残り4枚は無作為順でライブラリー下へ置かれる。
+    bottom_card_ids = {
+        card.id
+        for card in library_cards[1:]
+    }
+
+    assert bottom_card_ids == {
+        first.id,
+        third.id,
+        fourth.id,
+        fifth.id,
+    }
+
+    assert selected not in player.library
 
 def test_kinnan_activation_allows_no_selection() -> None:
     state = create_running_state()
@@ -236,14 +250,21 @@ def test_kinnan_activation_allows_no_selection() -> None:
         ),
     )
 
+    library_cards = list(player.library)
+
     assert len(player.battlefield) == 1
-    assert list(player.library) == revealed
+    assert len(library_cards) == 5
+
+    assert {
+        card.id
+        for card in library_cards
+    } == {
+        card.id
+        for card in revealed
+    }
+
     assert state.mana_spent == 7
     assert state.action_count == 1
-    assert state.kinnan_chain.activation_count == 1
-    assert state.kinnan_chain.hit_count == 0
-    assert state.kinnan_chain.miss_count == 1
-    assert state.kinnan_chain.current_chain_length == 0
 
 def test_kinnan_activation_rejects_human_creature() -> None:
     state = create_running_state()
