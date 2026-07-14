@@ -37,6 +37,9 @@ from krs.engine.etb_ability_engine import EtbAbilityEngine
 from krs.engine.kinnan_ability_executor import (
     KinnanAbilityExecutor,
 )
+from krs.engine.kinnan_resolution_engine import (
+    KinnanResolutionEngine,
+)
 
 class ActionExecutor:
     """
@@ -58,6 +61,9 @@ class ActionExecutor:
         kinnan_ability_executor: (
             KinnanAbilityExecutor | None
         ) = None,
+        kinnan_resolution_engine: (
+            KinnanResolutionEngine | None
+        ) = None,
     ) -> None:
         self._static_ability_engine = (
             static_ability_engine
@@ -78,6 +84,10 @@ class ActionExecutor:
         self._kinnan_ability_executor = (
             kinnan_ability_executor
             or KinnanAbilityExecutor()
+        )
+        self._kinnan_resolution_engine = (
+            kinnan_resolution_engine
+            or KinnanResolutionEngine()
         )
 
     def execute(
@@ -943,98 +953,7 @@ class ActionExecutor:
         state: GameState,
         action: ActivateKinnanAction,
     ) -> None:
-        player = self._get_player(
-            state,
-            action.player_id,
+        self._kinnan_resolution_engine.execute(
+            state=state,
+            action=action,
         )
-
-        if not state.started:
-            raise ValueError(
-                "Cannot activate Kinnan before the game starts."
-            )
-
-        if state.game_over:
-            raise ValueError(
-                "Cannot activate Kinnan in a finished game."
-            )
-
-        source = self._find_permanent_on_battlefield(
-            player=player,
-            permanent_id=action.source_permanent_id,
-        )
-
-        if source.controller_id != player.player_id:
-            raise ValueError(
-                "Player does not control the Kinnan source."
-            )
-
-        if not is_kinnan(source):
-            raise ValueError(
-                "Source permanent is not Kinnan: "
-                f"{source.effective_card.name}"
-            )
-
-        if not player.mana_pool.can_pay(
-            KINNAN_ACTIVATION_COST
-        ):
-            raise ValueError(
-                "Kinnan activation cost cannot be paid."
-            )
-
-        reveal_count = min(
-            KINNAN_LOOK_COUNT,
-            len(player.library),
-        )
-
-        revealed_cards = player.library.peek(
-            reveal_count
-        )
-
-        selected_card = find_selected_hit(
-            revealed_cards=revealed_cards,
-            selected_card_id=action.selected_card_id,
-        )
-
-        # すべての検証完了後に状態を変更する
-        player.mana_pool.pay(
-            KINNAN_ACTIVATION_COST
-        )
-
-        removed_cards = player.library.draw_many(
-            reveal_count
-        )
-
-        remaining_cards = list(removed_cards)
-
-        if selected_card is not None:
-            remaining_cards.remove(selected_card)
-
-            permanent = Permanent(
-                permanent_id=state.next_permanent_id,
-                card=selected_card,
-                owner_id=player.player_id,
-                controller_id=player.player_id,
-                tapped=False,
-                summoning_sick=self._is_creature_card(
-                    selected_card
-                ),
-                entered_turn=state.turn_number,
-            )
-
-            player.battlefield.add(permanent)
-            state.next_permanent_id += 1
-
-        player.library.put_many_on_bottom(
-            remaining_cards
-        )
-        if selected_card is not None:
-            state.kinnan_chain.record_hit(
-                selected_card.id
-            )
-        else:
-            state.kinnan_chain.record_miss()
-
-        state.mana_spent += (
-            KINNAN_ACTIVATION_COST.total
-        )
-        state.action_count += 1

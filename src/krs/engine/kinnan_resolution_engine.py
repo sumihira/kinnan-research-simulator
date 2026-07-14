@@ -1,0 +1,180 @@
+from __future__ import annotations
+
+from krs.actions.activate_kinnan import ActivateKinnanAction
+from krs.cards.card import Card
+from krs.commanders.kinnan import is_kinnan
+from krs.commanders.kinnan_ability import (
+    KINNAN_ACTIVATION_COST,
+    KINNAN_LOOK_COUNT,
+    find_selected_hit,
+)
+from krs.game.game_state import GameState
+from krs.game.permanent import Permanent
+from krs.game.player import Player
+
+
+class KinnanResolutionEngine:
+    """Validates and resolves Kinnan's activated ability."""
+
+    def execute(
+        self,
+        *,
+        state: GameState,
+        action: ActivateKinnanAction,
+    ) -> None:
+        """Resolve a Kinnan activation without changing behavior."""
+        player = self._get_player(
+            state=state,
+            player_id=action.player_id,
+        )
+
+        if not state.started:
+            raise ValueError(
+                "Cannot activate Kinnan before the game starts."
+            )
+
+        if state.game_over:
+            raise ValueError(
+                "Cannot activate Kinnan in a finished game."
+            )
+
+        source = self._find_permanent_on_battlefield(
+            player=player,
+            permanent_id=action.source_permanent_id,
+        )
+
+        if source.controller_id != player.player_id:
+            raise ValueError(
+                "Player does not control the Kinnan source."
+            )
+
+        if not is_kinnan(source):
+            raise ValueError(
+                "Source permanent is not Kinnan: "
+                f"{source.effective_card.name}"
+            )
+
+        if not player.mana_pool.can_pay(
+            KINNAN_ACTIVATION_COST
+        ):
+            raise ValueError(
+                "Kinnan activation cost cannot be paid."
+            )
+
+        reveal_count = min(
+            KINNAN_LOOK_COUNT,
+            len(player.library),
+        )
+
+        revealed_cards = player.library.peek(
+            reveal_count
+        )
+
+        selected_card = find_selected_hit(
+            revealed_cards=revealed_cards,
+            selected_card_id=action.selected_card_id,
+        )
+
+        player.mana_pool.pay(
+            KINNAN_ACTIVATION_COST
+        )
+
+        removed_cards = player.library.draw_many(
+            reveal_count
+        )
+        remaining_cards = list(removed_cards)
+
+        if selected_card is not None:
+            remaining_cards.remove(selected_card)
+
+            self._put_selected_card_onto_battlefield(
+                state=state,
+                player=player,
+                selected_card=selected_card,
+            )
+
+        player.library.put_many_on_bottom(
+            remaining_cards
+        )
+
+        if selected_card is not None:
+            state.kinnan_chain.record_hit(
+                selected_card.id
+            )
+        else:
+            state.kinnan_chain.record_miss()
+
+        state.mana_spent += (
+            KINNAN_ACTIVATION_COST.total
+        )
+        state.action_count += 1
+
+    @classmethod
+    def _put_selected_card_onto_battlefield(
+        cls,
+        *,
+        state: GameState,
+        player: Player,
+        selected_card: Card,
+    ) -> None:
+        permanent = Permanent(
+            permanent_id=state.next_permanent_id,
+            card=selected_card,
+            owner_id=player.player_id,
+            controller_id=player.player_id,
+            tapped=False,
+            summoning_sick=cls._is_creature_card(
+                selected_card
+            ),
+            entered_turn=state.turn_number,
+        )
+
+        player.battlefield.add(permanent)
+        state.next_permanent_id += 1
+
+    @staticmethod
+    def _get_player(
+        *,
+        state: GameState,
+        player_id: int,
+    ) -> Player:
+        for player in state.players:
+            if player.player_id == player_id:
+                return player
+
+        raise ValueError(
+            f"Player not found: {player_id}"
+        )
+
+    @staticmethod
+    def _find_permanent_on_battlefield(
+        *,
+        player: Player,
+        permanent_id: int,
+    ) -> Permanent:
+        for permanent in player.battlefield:
+            if permanent.permanent_id == permanent_id:
+                return permanent
+
+        raise ValueError(
+            "Permanent not found on battlefield: "
+            f"{permanent_id}"
+        )
+
+    @staticmethod
+    def _card_types(
+        card: Card,
+    ) -> set[str]:
+        type_part = card.type_line.split(
+            " — ",
+            maxsplit=1,
+        )[0]
+
+        return set(type_part.split())
+
+    @classmethod
+    def _is_creature_card(
+        cls,
+        card: Card,
+    ) -> bool:
+        return "Creature" in cls._card_types(card)
