@@ -8,8 +8,8 @@ class SimulationConfig:
     """
     Configuration for one simulation run.
 
-    Version 1 contains only the minimum fields required to build
-    a GameEngine and execute Goldfish games.
+    The configuration controls strategy selection, game count, turn limits,
+    deterministic seeds, and experiment execution concurrency.
     """
 
     strategy_name: str = "balanced"
@@ -18,6 +18,7 @@ class SimulationConfig:
     seed: int | None = None
     mulligan_enabled: bool = True
     save_replays: bool = False
+    workers: int = 1
 
     def __post_init__(self) -> None:
         normalized_strategy = (
@@ -39,6 +40,11 @@ class SimulationConfig:
         if self.max_turns <= 0:
             raise ValueError(
                 "Maximum turns must be greater than zero."
+            )
+
+        if self.workers <= 0:
+            raise ValueError(
+                "Number of workers must be greater than zero."
             )
 
         object.__setattr__(

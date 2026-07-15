@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import Future
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from krs.decks.deck import Deck
@@ -20,9 +22,11 @@ class ExperimentManager:
     """
     Runs every game configured for one simulation experiment.
 
-    Version 1 executes games sequentially through SimulationWorker.
-    Worker results retain game IDs so future parallel execution can restore
-    deterministic result ordering before aggregation.
+    A single configured worker executes games sequentially. Two or more
+    configured workers execute games through ThreadPoolExecutor.
+
+    Worker results retain game IDs, so completion order never changes the
+    deterministic ordering stored in ExperimentResult.
     """
 
     simulator: GoldfishSimulator
@@ -42,19 +46,12 @@ class ExperimentManager:
         player_name: str = "Player",
     ) -> ExperimentResult:
         """
-        Execute config.games Goldfish games and aggregate the results.
-
-        Worker completion order does not affect ExperimentResult ordering.
-        Results are always returned in ascending game_id order.
+        Execute the configured Goldfish games and aggregate their results.
         """
-        worker_results = tuple(
-            self._run_game(
-                deck,
-                game_id=game_id,
-                player_id=player_id,
-                player_name=player_name,
-            )
-            for game_id in range(self.simulator.config.games)
+        worker_results = self._execute_games(
+            deck,
+            player_id=player_id,
+            player_name=player_name,
         )
 
         results = self._order_game_results(
@@ -70,6 +67,99 @@ class ExperimentManager:
             config=self.simulator.config,
             game_results=results,
             summary=summary,
+        )
+
+    def _execute_games(
+        self,
+        deck: Deck,
+        *,
+        player_id: int,
+        player_name: str,
+    ) -> tuple[SimulationGameResult, ...]:
+        """
+        Execute games sequentially or concurrently from configuration.
+        """
+        if self.simulator.config.workers == 1:
+            return self._execute_games_sequentially(
+                deck,
+                player_id=player_id,
+                player_name=player_name,
+            )
+
+        return self._execute_games_concurrently(
+            deck,
+            player_id=player_id,
+            player_name=player_name,
+        )
+
+    def _execute_games_sequentially(
+        self,
+        deck: Deck,
+        *,
+        player_id: int,
+        player_name: str,
+    ) -> tuple[SimulationGameResult, ...]:
+        """Execute every configured game on the calling thread."""
+        return tuple(
+            self._run_game(
+                deck,
+                game_id=game_id,
+                player_id=player_id,
+                player_name=player_name,
+            )
+            for game_id in range(self.simulator.config.games)
+        )
+
+    def _execute_games_concurrently(
+        self,
+        deck: Deck,
+        *,
+        player_id: int,
+        player_name: str,
+    ) -> tuple[SimulationGameResult, ...]:
+        """
+        Execute configured games through ThreadPoolExecutor.
+
+        Results are collected in submission order here, but final ordering
+        is still normalized by game_id before aggregation.
+        """
+        with ThreadPoolExecutor(
+            max_workers=self.simulator.config.workers,
+        ) as executor:
+            futures = tuple(
+                self._submit_game(
+                    executor,
+                    deck,
+                    game_id=game_id,
+                    player_id=player_id,
+                    player_name=player_name,
+                )
+                for game_id in range(
+                    self.simulator.config.games
+                )
+            )
+
+            return tuple(
+                future.result()
+                for future in futures
+            )
+
+    def _submit_game(
+        self,
+        executor: ThreadPoolExecutor,
+        deck: Deck,
+        *,
+        game_id: int,
+        player_id: int,
+        player_name: str,
+    ) -> Future[SimulationGameResult]:
+        """Submit one SimulationWorker execution to the executor."""
+        return executor.submit(
+            self._run_game,
+            deck,
+            game_id=game_id,
+            player_id=player_id,
+            player_name=player_name,
         )
 
     def _run_game(

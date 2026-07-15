@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import pytest
 
-from krs.simulation.simulation_config import (
-    SimulationConfig,
-)
+from krs.simulation.simulation_config import SimulationConfig
 
 
 def test_simulation_config_defaults() -> None:
@@ -14,17 +14,25 @@ def test_simulation_config_defaults() -> None:
     assert config.seed is None
     assert config.mulligan_enabled is True
     assert config.save_replays is False
+    assert config.workers == 1
 
 
 def test_strategy_name_is_normalized() -> None:
     config = SimulationConfig(
-        strategy_name="  COMBO  "
+        strategy_name=" COMBO ",
     )
 
     assert config.strategy_name == "combo"
 
 
-@pytest.mark.parametrize("games", [0, -1, -100])
+@pytest.mark.parametrize(
+    "games",
+    [
+        0,
+        -1,
+        -100,
+    ],
+)
 def test_games_must_be_positive(
     games: int,
 ) -> None:
@@ -32,12 +40,18 @@ def test_games_must_be_positive(
         ValueError,
         match="Number of games must be greater than zero",
     ):
-        SimulationConfig(games=games)
+        SimulationConfig(
+            games=games,
+        )
 
 
 @pytest.mark.parametrize(
     "max_turns",
-    [0, -1, -10],
+    [
+        0,
+        -1,
+        -10,
+    ],
 )
 def test_max_turns_must_be_positive(
     max_turns: int,
@@ -47,7 +61,27 @@ def test_max_turns_must_be_positive(
         match="Maximum turns must be greater than zero",
     ):
         SimulationConfig(
-            max_turns=max_turns
+            max_turns=max_turns,
+        )
+
+
+@pytest.mark.parametrize(
+    "workers",
+    [
+        0,
+        -1,
+        -10,
+    ],
+)
+def test_workers_must_be_positive(
+    workers: int,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Number of workers must be greater than zero",
+    ):
+        SimulationConfig(
+            workers=workers,
         )
 
 
@@ -57,12 +91,20 @@ def test_strategy_name_must_not_be_empty() -> None:
         match="Strategy name must not be empty",
     ):
         SimulationConfig(
-            strategy_name=""
+            strategy_name="",
         )
+
+
+def test_simulation_config_accepts_multiple_workers() -> None:
+    config = SimulationConfig(
+        workers=4,
+    )
+
+    assert config.workers == 4
 
 
 def test_simulation_config_is_immutable() -> None:
     config = SimulationConfig()
 
     with pytest.raises(AttributeError):
-        config.games = 2000  # type: ignore[misc]
+        config.games = 2_000  # type: ignore[misc]
