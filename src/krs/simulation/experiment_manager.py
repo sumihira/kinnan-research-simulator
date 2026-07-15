@@ -9,6 +9,7 @@ from krs.simulation.experiment import (
 )
 from krs.simulation.runner import GoldfishRunResult
 from krs.simulation.simulator import GoldfishSimulator
+from krs.simulation.worker import SimulationWorker
 
 
 @dataclass(slots=True)
@@ -16,11 +17,19 @@ class ExperimentManager:
     """
     Runs every game configured for one simulation experiment.
 
-    Version 1 executes games sequentially. Parallel worker execution can
-    later be added without changing ExperimentResult or SimulationSummary.
+    Version 1 executes games sequentially through SimulationWorker.
+    The worker boundary allows parallel execution to be added later without
+    changing ExperimentResult or SimulationSummary.
     """
 
     simulator: GoldfishSimulator
+    worker: SimulationWorker | None = None
+
+    def __post_init__(self) -> None:
+        if self.worker is None:
+            self.worker = SimulationWorker(
+                simulator=self.simulator,
+            )
 
     def run(
         self,
@@ -33,7 +42,7 @@ class ExperimentManager:
         Execute config.games Goldfish games and aggregate the results.
         """
         results = tuple(
-            self._simulate_game(
+            self._run_game(
                 deck,
                 game_id=game_id,
                 player_id=player_id,
@@ -53,7 +62,7 @@ class ExperimentManager:
             summary=summary,
         )
 
-    def _simulate_game(
+    def _run_game(
         self,
         deck: Deck,
         *,
@@ -61,8 +70,15 @@ class ExperimentManager:
         player_id: int,
         player_name: str,
     ) -> GoldfishRunResult:
-        """Execute one game through GoldfishSimulator."""
-        return self.simulator.simulate_game(
+        """Execute one game through the configured SimulationWorker."""
+        worker = self.worker
+
+        if worker is None:
+            raise RuntimeError(
+                "SimulationWorker has not been initialized."
+            )
+
+        return worker.run_game(
             deck,
             game_id=game_id,
             player_id=player_id,

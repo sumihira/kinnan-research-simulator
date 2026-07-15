@@ -9,6 +9,7 @@ from krs.simulation.experiment_manager import ExperimentManager
 from krs.simulation.runner import GoldfishRunResult
 from krs.simulation.simulation_config import SimulationConfig
 from krs.simulation.simulator import GoldfishSimulator
+from krs.simulation.worker import SimulationWorker
 
 
 def create_card(
@@ -78,6 +79,48 @@ def create_simulator_mock(
     return simulator
 
 
+def create_worker_mock() -> Mock:
+    return Mock(
+        spec=SimulationWorker,
+    )
+
+
+def test_manager_creates_default_worker() -> None:
+    config = SimulationConfig(
+        games=1,
+    )
+    simulator = create_simulator_mock(
+        config=config,
+    )
+
+    manager = ExperimentManager(
+        simulator=simulator,
+    )
+
+    assert isinstance(
+        manager.worker,
+        SimulationWorker,
+    )
+    assert manager.worker.simulator is simulator
+
+
+def test_manager_uses_injected_worker() -> None:
+    config = SimulationConfig(
+        games=1,
+    )
+    simulator = create_simulator_mock(
+        config=config,
+    )
+    worker = create_worker_mock()
+
+    manager = ExperimentManager(
+        simulator=simulator,
+        worker=worker,
+    )
+
+    assert manager.worker is worker
+
+
 def test_manager_executes_configured_number_of_games() -> None:
     deck = create_deck()
     config = SimulationConfig(
@@ -87,7 +130,8 @@ def test_manager_executes_configured_number_of_games() -> None:
     simulator = create_simulator_mock(
         config=config,
     )
-    simulator.simulate_game.side_effect = [
+    worker = create_worker_mock()
+    worker.run_game.side_effect = [
         create_result(
             turns_started=2,
             kinnan_activations=1,
@@ -104,11 +148,12 @@ def test_manager_executes_configured_number_of_games() -> None:
 
     manager = ExperimentManager(
         simulator=simulator,
+        worker=worker,
     )
 
     result = manager.run(deck)
 
-    assert simulator.simulate_game.call_count == 3
+    assert worker.run_game.call_count == 3
     assert len(result.game_results) == 3
     assert result.summary.games_completed == 3
 
@@ -122,18 +167,20 @@ def test_manager_uses_sequential_game_ids() -> None:
     simulator = create_simulator_mock(
         config=config,
     )
-    simulator.simulate_game.return_value = create_result(
+    worker = create_worker_mock()
+    worker.run_game.return_value = create_result(
         turns_started=1,
         kinnan_activations=0,
     )
 
     manager = ExperimentManager(
         simulator=simulator,
+        worker=worker,
     )
 
     manager.run(deck)
 
-    assert simulator.simulate_game.call_args_list == [
+    assert worker.run_game.call_args_list == [
         call(
             deck,
             game_id=0,
@@ -164,13 +211,15 @@ def test_manager_passes_custom_player_values() -> None:
     simulator = create_simulator_mock(
         config=config,
     )
-    simulator.simulate_game.return_value = create_result(
+    worker = create_worker_mock()
+    worker.run_game.return_value = create_result(
         turns_started=1,
         kinnan_activations=0,
     )
 
     manager = ExperimentManager(
         simulator=simulator,
+        worker=worker,
     )
 
     manager.run(
@@ -179,7 +228,7 @@ def test_manager_passes_custom_player_values() -> None:
         player_name="Junpei",
     )
 
-    simulator.simulate_game.assert_called_once_with(
+    worker.run_game.assert_called_once_with(
         deck,
         game_id=0,
         player_id=7,
@@ -187,7 +236,7 @@ def test_manager_passes_custom_player_values() -> None:
     )
 
 
-def test_manager_aggregates_results() -> None:
+def test_manager_aggregates_worker_results() -> None:
     deck = create_deck()
     config = SimulationConfig(
         games=3,
@@ -196,7 +245,8 @@ def test_manager_aggregates_results() -> None:
     simulator = create_simulator_mock(
         config=config,
     )
-    simulator.simulate_game.side_effect = [
+    worker = create_worker_mock()
+    worker.run_game.side_effect = [
         create_result(
             turns_started=2,
             kinnan_activations=1,
@@ -218,6 +268,7 @@ def test_manager_aggregates_results() -> None:
 
     manager = ExperimentManager(
         simulator=simulator,
+        worker=worker,
     )
 
     result = manager.run(deck)
@@ -235,7 +286,7 @@ def test_manager_aggregates_results() -> None:
     assert result.summary.win_rate == 2 / 3
 
 
-def test_manager_preserves_game_result_order() -> None:
+def test_manager_preserves_worker_result_order() -> None:
     deck = create_deck()
     config = SimulationConfig(
         games=2,
@@ -253,13 +304,15 @@ def test_manager_preserves_game_result_order() -> None:
     simulator = create_simulator_mock(
         config=config,
     )
-    simulator.simulate_game.side_effect = [
+    worker = create_worker_mock()
+    worker.run_game.side_effect = [
         first_result,
         second_result,
     ]
 
     manager = ExperimentManager(
         simulator=simulator,
+        worker=worker,
     )
 
     result = manager.run(deck)
@@ -270,7 +323,7 @@ def test_manager_preserves_game_result_order() -> None:
     )
 
 
-def test_manager_returns_immutable_result_collections() -> None:
+def test_manager_does_not_call_simulator_directly() -> None:
     deck = create_deck()
     config = SimulationConfig(
         games=1,
@@ -279,13 +332,40 @@ def test_manager_returns_immutable_result_collections() -> None:
     simulator = create_simulator_mock(
         config=config,
     )
-    simulator.simulate_game.return_value = create_result(
+    worker = create_worker_mock()
+    worker.run_game.return_value = create_result(
         turns_started=1,
         kinnan_activations=0,
     )
 
     manager = ExperimentManager(
         simulator=simulator,
+        worker=worker,
+    )
+
+    manager.run(deck)
+
+    simulator.simulate_game.assert_not_called()
+
+
+def test_manager_returns_immutable_result_collection() -> None:
+    deck = create_deck()
+    config = SimulationConfig(
+        games=1,
+    )
+
+    simulator = create_simulator_mock(
+        config=config,
+    )
+    worker = create_worker_mock()
+    worker.run_game.return_value = create_result(
+        turns_started=1,
+        kinnan_activations=0,
+    )
+
+    manager = ExperimentManager(
+        simulator=simulator,
+        worker=worker,
     )
 
     result = manager.run(deck)
