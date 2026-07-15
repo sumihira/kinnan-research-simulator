@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from krs.report.analysis import ExperimentAnalysisReporter
 from krs.report.csv import (
     CsvExperimentReporter,
     CsvReportPaths,
@@ -21,6 +22,7 @@ class ExperimentReportBundlePaths:
 
     output_directory: Path
     json_path: Path
+    analysis_path: Path
     csv_summary_path: Path
     csv_games_path: Path
     html_path: Path
@@ -29,6 +31,7 @@ class ExperimentReportBundlePaths:
     def __post_init__(self) -> None:
         generated_paths = (
             self.json_path,
+            self.analysis_path,
             self.csv_summary_path,
             self.csv_games_path,
             self.html_path,
@@ -67,6 +70,9 @@ class ExperimentReportBundleWriter:
     json_reporter: JsonExperimentReporter = field(
         default_factory=JsonExperimentReporter,
     )
+    analysis_reporter: ExperimentAnalysisReporter = field(
+        default_factory=ExperimentAnalysisReporter,
+    )
     csv_reporter: CsvExperimentReporter = field(
         default_factory=CsvExperimentReporter,
     )
@@ -77,6 +83,7 @@ class ExperimentReportBundleWriter:
         default_factory=ExcelExperimentReporter,
     )
     json_filename: str = "experiment.json"
+    analysis_filename: str = "analysis.json"
     html_filename: str = "experiment.html"
     excel_filename: str = "experiment.xlsx"
     csv_directory_name: str = "csv"
@@ -85,6 +92,11 @@ class ExperimentReportBundleWriter:
         self._validate_filename(
             self.json_filename,
             field_name="json_filename",
+            allowed_suffixes=(".json",),
+        )
+        self._validate_filename(
+            self.analysis_filename,
+            field_name="analysis_filename",
             allowed_suffixes=(".json",),
         )
         self._validate_filename(
@@ -107,6 +119,7 @@ class ExperimentReportBundleWriter:
 
         root_filenames = (
             self.json_filename.casefold(),
+            self.analysis_filename.casefold(),
             self.html_filename.casefold(),
             self.excel_filename.casefold(),
         )
@@ -122,7 +135,7 @@ class ExperimentReportBundleWriter:
         directory: str | Path,
     ) -> ExperimentReportBundlePaths:
         """
-        Write JSON, CSV, HTML, and Excel reports.
+        Write JSON, analysis JSON, CSV, HTML, and Excel reports.
 
         Missing output directories are created automatically.
         """
@@ -146,6 +159,10 @@ class ExperimentReportBundleWriter:
             output_directory
             / self.json_filename
         )
+        analysis_path = (
+            output_directory
+            / self.analysis_filename
+        )
         html_path = (
             output_directory
             / self.html_filename
@@ -163,6 +180,10 @@ class ExperimentReportBundleWriter:
             result,
             json_path,
         )
+        written_analysis_path = self.analysis_reporter.write(
+            result,
+            analysis_path,
+        )
         csv_paths = self.csv_reporter.write(
             result,
             csv_directory,
@@ -179,6 +200,7 @@ class ExperimentReportBundleWriter:
         return self._create_paths(
             output_directory=output_directory,
             json_path=written_json_path,
+            analysis_path=written_analysis_path,
             csv_paths=csv_paths,
             html_path=written_html_path,
             excel_path=written_excel_path,
@@ -189,6 +211,7 @@ class ExperimentReportBundleWriter:
         *,
         output_directory: Path,
         json_path: Path,
+        analysis_path: Path,
         csv_paths: CsvReportPaths,
         html_path: Path,
         excel_path: Path,
@@ -199,6 +222,7 @@ class ExperimentReportBundleWriter:
         return ExperimentReportBundlePaths(
             output_directory=output_directory,
             json_path=json_path,
+            analysis_path=analysis_path,
             csv_summary_path=csv_paths.summary_path,
             csv_games_path=csv_paths.games_path,
             html_path=html_path,

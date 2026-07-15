@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import Mock, call
+from unittest.mock import Mock
 
 import pytest
 
+from krs.report.analysis import ExperimentAnalysisReporter
 from krs.report.bundle import (
     ExperimentReportBundlePaths,
     ExperimentReportBundleWriter,
@@ -91,6 +92,7 @@ def test_write_creates_all_report_files(
     assert paths == ExperimentReportBundlePaths(
         output_directory=tmp_path,
         json_path=tmp_path / "experiment.json",
+        analysis_path=tmp_path / "analysis.json",
         csv_summary_path=(
             tmp_path
             / "csv"
@@ -106,6 +108,7 @@ def test_write_creates_all_report_files(
     )
 
     assert paths.json_path.is_file()
+    assert paths.analysis_path.is_file()
     assert paths.csv_summary_path.is_file()
     assert paths.csv_games_path.is_file()
     assert paths.html_path.is_file()
@@ -143,6 +146,7 @@ def test_write_uses_custom_output_names(
 
     writer = ExperimentReportBundleWriter(
         json_filename="result.json",
+        analysis_filename="statistics.json",
         html_filename="result.htm",
         excel_filename="result.xlsx",
         csv_directory_name="tables",
@@ -156,6 +160,10 @@ def test_write_uses_custom_output_names(
     assert paths.json_path == (
         tmp_path
         / "result.json"
+    )
+    assert paths.analysis_path == (
+        tmp_path
+        / "statistics.json"
     )
     assert paths.html_path == (
         tmp_path
@@ -185,6 +193,9 @@ def test_write_delegates_to_all_reporters(
     json_reporter = Mock(
         spec=JsonExperimentReporter,
     )
+    analysis_reporter = Mock(
+        spec=ExperimentAnalysisReporter,
+    )
     csv_reporter = Mock(
         spec=CsvExperimentReporter,
     )
@@ -196,11 +207,13 @@ def test_write_delegates_to_all_reporters(
     )
 
     json_path = tmp_path / "experiment.json"
+    analysis_path = tmp_path / "analysis.json"
     html_path = tmp_path / "experiment.html"
     excel_path = tmp_path / "experiment.xlsx"
     csv_directory = tmp_path / "csv"
 
     json_reporter.write.return_value = json_path
+    analysis_reporter.write.return_value = analysis_path
     csv_reporter.write.return_value = CsvReportPaths(
         summary_path=csv_directory / "summary.csv",
         games_path=csv_directory / "games.csv",
@@ -210,6 +223,7 @@ def test_write_delegates_to_all_reporters(
 
     writer = ExperimentReportBundleWriter(
         json_reporter=json_reporter,
+        analysis_reporter=analysis_reporter,
         csv_reporter=csv_reporter,
         html_reporter=html_reporter,
         excel_reporter=excel_reporter,
@@ -223,6 +237,10 @@ def test_write_delegates_to_all_reporters(
     json_reporter.write.assert_called_once_with(
         result,
         json_path,
+    )
+    analysis_reporter.write.assert_called_once_with(
+        result,
+        analysis_path,
     )
     csv_reporter.write.assert_called_once_with(
         result,
@@ -238,6 +256,7 @@ def test_write_delegates_to_all_reporters(
     )
 
     assert paths.json_path == json_path
+    assert paths.analysis_path == analysis_path
     assert paths.html_path == html_path
     assert paths.excel_path == excel_path
 
@@ -250,6 +269,9 @@ def test_reporters_are_called_in_stable_order(
 
     json_reporter = Mock(
         spec=JsonExperimentReporter,
+    )
+    analysis_reporter = Mock(
+        spec=ExperimentAnalysisReporter,
     )
     csv_reporter = Mock(
         spec=CsvExperimentReporter,
@@ -267,6 +289,14 @@ def test_reporters_are_called_in_stable_order(
     ) -> Path:
         assert current_result is result
         calls.append("json")
+        return path
+
+    def write_analysis(
+        current_result: ExperimentResult,
+        path: Path,
+    ) -> Path:
+        assert current_result is result
+        calls.append("analysis")
         return path
 
     def write_csv(
@@ -297,12 +327,14 @@ def test_reporters_are_called_in_stable_order(
         return path
 
     json_reporter.write.side_effect = write_json
+    analysis_reporter.write.side_effect = write_analysis
     csv_reporter.write.side_effect = write_csv
     html_reporter.write.side_effect = write_html
     excel_reporter.write.side_effect = write_excel
 
     writer = ExperimentReportBundleWriter(
         json_reporter=json_reporter,
+        analysis_reporter=analysis_reporter,
         csv_reporter=csv_reporter,
         html_reporter=html_reporter,
         excel_reporter=excel_reporter,
@@ -315,31 +347,32 @@ def test_reporters_are_called_in_stable_order(
 
     assert calls == [
         "json",
+        "analysis",
         "csv",
         "html",
         "excel",
     ]
 
 
-def test_write_propagates_reporter_exception(
+def test_write_propagates_analysis_reporter_exception(
     tmp_path: Path,
 ) -> None:
     result = create_experiment_result()
 
-    json_reporter = Mock(
-        spec=JsonExperimentReporter,
+    analysis_reporter = Mock(
+        spec=ExperimentAnalysisReporter,
     )
-    json_reporter.write.side_effect = RuntimeError(
-        "JSON output failed."
+    analysis_reporter.write.side_effect = RuntimeError(
+        "Analysis output failed."
     )
 
     writer = ExperimentReportBundleWriter(
-        json_reporter=json_reporter,
+        analysis_reporter=analysis_reporter,
     )
 
     with pytest.raises(
         RuntimeError,
-        match="JSON output failed.",
+        match="Analysis output failed.",
     ):
         writer.write(
             result,
@@ -375,6 +408,7 @@ def test_write_rejects_file_as_output_directory(
     (
         "field_name",
         "json_filename",
+        "analysis_filename",
         "html_filename",
         "excel_filename",
     ),
@@ -382,26 +416,37 @@ def test_write_rejects_file_as_output_directory(
         (
             "json_filename",
             "",
+            "analysis.json",
+            "experiment.html",
+            "experiment.xlsx",
+        ),
+        (
+            "analysis_filename",
+            "experiment.json",
+            " ",
             "experiment.html",
             "experiment.xlsx",
         ),
         (
             "html_filename",
             "experiment.json",
-            " ",
+            "analysis.json",
+            "\t",
             "experiment.xlsx",
         ),
         (
             "excel_filename",
             "experiment.json",
+            "analysis.json",
             "experiment.html",
-            "\t",
+            "\n",
         ),
     ),
 )
 def test_writer_rejects_empty_filenames(
     field_name: str,
     json_filename: str,
+    analysis_filename: str,
     html_filename: str,
     excel_filename: str,
 ) -> None:
@@ -411,6 +456,7 @@ def test_writer_rejects_empty_filenames(
     ):
         ExperimentReportBundleWriter(
             json_filename=json_filename,
+            analysis_filename=analysis_filename,
             html_filename=html_filename,
             excel_filename=excel_filename,
         )
@@ -420,6 +466,7 @@ def test_writer_rejects_empty_filenames(
     (
         "field_name",
         "json_filename",
+        "analysis_filename",
         "html_filename",
         "excel_filename",
     ),
@@ -427,18 +474,28 @@ def test_writer_rejects_empty_filenames(
         (
             "json_filename",
             "reports/experiment.json",
+            "analysis.json",
+            "experiment.html",
+            "experiment.xlsx",
+        ),
+        (
+            "analysis_filename",
+            "experiment.json",
+            "reports/analysis.json",
             "experiment.html",
             "experiment.xlsx",
         ),
         (
             "html_filename",
             "experiment.json",
+            "analysis.json",
             "reports/experiment.html",
             "experiment.xlsx",
         ),
         (
             "excel_filename",
             "experiment.json",
+            "analysis.json",
             "experiment.html",
             "reports/experiment.xlsx",
         ),
@@ -447,6 +504,7 @@ def test_writer_rejects_empty_filenames(
 def test_writer_rejects_directories_in_filenames(
     field_name: str,
     json_filename: str,
+    analysis_filename: str,
     html_filename: str,
     excel_filename: str,
 ) -> None:
@@ -459,6 +517,7 @@ def test_writer_rejects_directories_in_filenames(
     ):
         ExperimentReportBundleWriter(
             json_filename=json_filename,
+            analysis_filename=analysis_filename,
             html_filename=html_filename,
             excel_filename=excel_filename,
         )
@@ -468,6 +527,7 @@ def test_writer_rejects_directories_in_filenames(
     (
         "field_name",
         "json_filename",
+        "analysis_filename",
         "html_filename",
         "excel_filename",
     ),
@@ -475,18 +535,28 @@ def test_writer_rejects_directories_in_filenames(
         (
             "json_filename",
             "experiment.txt",
+            "analysis.json",
+            "experiment.html",
+            "experiment.xlsx",
+        ),
+        (
+            "analysis_filename",
+            "experiment.json",
+            "analysis.txt",
             "experiment.html",
             "experiment.xlsx",
         ),
         (
             "html_filename",
             "experiment.json",
+            "analysis.json",
             "experiment.txt",
             "experiment.xlsx",
         ),
         (
             "excel_filename",
             "experiment.json",
+            "analysis.json",
             "experiment.html",
             "experiment.xls",
         ),
@@ -495,6 +565,7 @@ def test_writer_rejects_directories_in_filenames(
 def test_writer_rejects_invalid_extensions(
     field_name: str,
     json_filename: str,
+    analysis_filename: str,
     html_filename: str,
     excel_filename: str,
 ) -> None:
@@ -504,8 +575,20 @@ def test_writer_rejects_invalid_extensions(
     ):
         ExperimentReportBundleWriter(
             json_filename=json_filename,
+            analysis_filename=analysis_filename,
             html_filename=html_filename,
             excel_filename=excel_filename,
+        )
+
+
+def test_writer_rejects_duplicate_root_filenames() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Root report filenames must be unique.",
+    ):
+        ExperimentReportBundleWriter(
+            json_filename="result.json",
+            analysis_filename="RESULT.JSON",
         )
 
 
@@ -563,7 +646,8 @@ def test_bundle_paths_reject_duplicate_paths(
         ExperimentReportBundlePaths(
             output_directory=tmp_path,
             json_path=duplicate_path,
-            csv_summary_path=duplicate_path,
+            analysis_path=duplicate_path,
+            csv_summary_path=tmp_path / "summary.csv",
             csv_games_path=tmp_path / "games.csv",
             html_path=tmp_path / "result.html",
             excel_path=tmp_path / "result.xlsx",
@@ -585,6 +669,10 @@ def test_bundle_paths_reject_paths_outside_output_directory(
         ExperimentReportBundlePaths(
             output_directory=output_directory,
             json_path=tmp_path / "outside.json",
+            analysis_path=(
+                output_directory
+                / "analysis.json"
+            ),
             csv_summary_path=(
                 output_directory
                 / "csv"
@@ -612,6 +700,7 @@ def test_bundle_paths_are_immutable(
     paths = ExperimentReportBundlePaths(
         output_directory=tmp_path,
         json_path=tmp_path / "experiment.json",
+        analysis_path=tmp_path / "analysis.json",
         csv_summary_path=(
             tmp_path
             / "csv"
@@ -627,7 +716,7 @@ def test_bundle_paths_are_immutable(
     )
 
     with pytest.raises(AttributeError):
-        paths.json_path = (  # type: ignore[misc]
+        paths.analysis_path = (  # type: ignore[misc]
             tmp_path
             / "changed.json"
         )
