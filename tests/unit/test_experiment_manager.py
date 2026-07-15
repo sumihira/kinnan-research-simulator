@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import Mock, call
 
+import pytest
+
 from krs.cards.card import Card
 from krs.decks.deck import Deck
 from krs.simulation.experiment import ExperimentResult
@@ -9,7 +11,10 @@ from krs.simulation.experiment_manager import ExperimentManager
 from krs.simulation.runner import GoldfishRunResult
 from krs.simulation.simulation_config import SimulationConfig
 from krs.simulation.simulator import GoldfishSimulator
-from krs.simulation.worker import SimulationWorker
+from krs.simulation.worker import (
+    SimulationGameResult,
+    SimulationWorker,
+)
 
 
 def create_card(
@@ -65,6 +70,27 @@ def create_result(
         reached_turn_limit=reached_turn_limit,
         game_over=game_over,
         winner=winner,
+    )
+
+
+def create_worker_result(
+    *,
+    game_id: int,
+    turns_started: int,
+    kinnan_activations: int,
+    reached_turn_limit: bool = False,
+    game_over: bool = False,
+    winner: str | None = None,
+) -> SimulationGameResult:
+    return SimulationGameResult(
+        game_id=game_id,
+        result=create_result(
+            turns_started=turns_started,
+            kinnan_activations=kinnan_activations,
+            reached_turn_limit=reached_turn_limit,
+            game_over=game_over,
+            winner=winner,
+        ),
     )
 
 
@@ -132,15 +158,18 @@ def test_manager_executes_configured_number_of_games() -> None:
     )
     worker = create_worker_mock()
     worker.run_game.side_effect = [
-        create_result(
+        create_worker_result(
+            game_id=0,
             turns_started=2,
             kinnan_activations=1,
         ),
-        create_result(
+        create_worker_result(
+            game_id=1,
             turns_started=3,
             kinnan_activations=2,
         ),
-        create_result(
+        create_worker_result(
+            game_id=2,
             turns_started=4,
             kinnan_activations=3,
         ),
@@ -168,10 +197,23 @@ def test_manager_uses_sequential_game_ids() -> None:
         config=config,
     )
     worker = create_worker_mock()
-    worker.run_game.return_value = create_result(
-        turns_started=1,
-        kinnan_activations=0,
-    )
+    worker.run_game.side_effect = [
+        create_worker_result(
+            game_id=0,
+            turns_started=1,
+            kinnan_activations=0,
+        ),
+        create_worker_result(
+            game_id=1,
+            turns_started=1,
+            kinnan_activations=0,
+        ),
+        create_worker_result(
+            game_id=2,
+            turns_started=1,
+            kinnan_activations=0,
+        ),
+    ]
 
     manager = ExperimentManager(
         simulator=simulator,
@@ -212,7 +254,8 @@ def test_manager_passes_custom_player_values() -> None:
         config=config,
     )
     worker = create_worker_mock()
-    worker.run_game.return_value = create_result(
+    worker.run_game.return_value = create_worker_result(
+        game_id=0,
         turns_started=1,
         kinnan_activations=0,
     )
@@ -247,19 +290,22 @@ def test_manager_aggregates_worker_results() -> None:
     )
     worker = create_worker_mock()
     worker.run_game.side_effect = [
-        create_result(
+        create_worker_result(
+            game_id=0,
             turns_started=2,
             kinnan_activations=1,
             game_over=True,
             winner="Player",
         ),
-        create_result(
+        create_worker_result(
+            game_id=1,
             turns_started=4,
             kinnan_activations=3,
             game_over=True,
             winner="Player",
         ),
-        create_result(
+        create_worker_result(
+            game_id=2,
             turns_started=6,
             kinnan_activations=0,
             reached_turn_limit=True,
@@ -286,28 +332,37 @@ def test_manager_aggregates_worker_results() -> None:
     assert result.summary.win_rate == 2 / 3
 
 
-def test_manager_preserves_worker_result_order() -> None:
+def test_manager_orders_results_by_game_id() -> None:
     deck = create_deck()
     config = SimulationConfig(
-        games=2,
+        games=3,
     )
 
-    first_result = create_result(
+    game_zero = create_worker_result(
+        game_id=0,
         turns_started=2,
         kinnan_activations=1,
     )
-    second_result = create_result(
+    game_one = create_worker_result(
+        game_id=1,
         turns_started=5,
         kinnan_activations=4,
+    )
+    game_two = create_worker_result(
+        game_id=2,
+        turns_started=3,
+        kinnan_activations=2,
     )
 
     simulator = create_simulator_mock(
         config=config,
     )
     worker = create_worker_mock()
+
     worker.run_game.side_effect = [
-        first_result,
-        second_result,
+        game_two,
+        game_zero,
+        game_one,
     ]
 
     manager = ExperimentManager(
@@ -318,9 +373,48 @@ def test_manager_preserves_worker_result_order() -> None:
     result = manager.run(deck)
 
     assert result.game_results == (
-        first_result,
-        second_result,
+        game_zero.result,
+        game_one.result,
+        game_two.result,
     )
+
+
+def test_manager_rejects_duplicate_game_ids() -> None:
+    deck = create_deck()
+    config = SimulationConfig(
+        games=2,
+    )
+
+    simulator = create_simulator_mock(
+        config=config,
+    )
+    worker = create_worker_mock()
+    worker.run_game.side_effect = [
+        create_worker_result(
+            game_id=0,
+            turns_started=2,
+            kinnan_activations=1,
+        ),
+        create_worker_result(
+            game_id=0,
+            turns_started=3,
+            kinnan_activations=2,
+        ),
+    ]
+
+    manager = ExperimentManager(
+        simulator=simulator,
+        worker=worker,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Worker results contain duplicate "
+            "game_id values."
+        ),
+    ):
+        manager.run(deck)
 
 
 def test_manager_does_not_call_simulator_directly() -> None:
@@ -333,7 +427,8 @@ def test_manager_does_not_call_simulator_directly() -> None:
         config=config,
     )
     worker = create_worker_mock()
-    worker.run_game.return_value = create_result(
+    worker.run_game.return_value = create_worker_result(
+        game_id=0,
         turns_started=1,
         kinnan_activations=0,
     )
@@ -358,7 +453,8 @@ def test_manager_returns_immutable_result_collection() -> None:
         config=config,
     )
     worker = create_worker_mock()
-    worker.run_game.return_value = create_result(
+    worker.run_game.return_value = create_worker_result(
+        game_id=0,
         turns_started=1,
         kinnan_activations=0,
     )

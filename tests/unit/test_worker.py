@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from unittest.mock import Mock
@@ -9,7 +8,10 @@ from krs.cards.card import Card
 from krs.decks.deck import Deck
 from krs.simulation.runner import GoldfishRunResult
 from krs.simulation.simulator import GoldfishSimulator
-from krs.simulation.worker import SimulationWorker
+from krs.simulation.worker import (
+    SimulationGameResult,
+    SimulationWorker,
+)
 
 
 def create_card(
@@ -61,6 +63,49 @@ def create_result() -> GoldfishRunResult:
     )
 
 
+def test_simulation_game_result_retains_game_id_and_result() -> None:
+    goldfish_result = create_result()
+
+    worker_result = SimulationGameResult(
+        game_id=4,
+        result=goldfish_result,
+    )
+
+    assert worker_result.game_id == 4
+    assert worker_result.result is goldfish_result
+
+
+def test_simulation_game_result_is_immutable() -> None:
+    worker_result = SimulationGameResult(
+        game_id=4,
+        result=create_result(),
+    )
+
+    with pytest.raises(AttributeError):
+        worker_result.game_id = 5  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    "game_id",
+    [
+        -1,
+        -10,
+        -100,
+    ],
+)
+def test_simulation_game_result_rejects_negative_game_id(
+    game_id: int,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="game_id must not be negative.",
+    ):
+        SimulationGameResult(
+            game_id=game_id,
+            result=create_result(),
+        )
+
+
 def test_worker_executes_one_game() -> None:
     deck = create_deck()
     expected_result = create_result()
@@ -74,7 +119,7 @@ def test_worker_executes_one_game() -> None:
         simulator=simulator,
     )
 
-    result = worker.run_game(
+    worker_result = worker.run_game(
         deck,
         game_id=4,
     )
@@ -85,7 +130,10 @@ def test_worker_executes_one_game() -> None:
         player_id=0,
         player_name="Player",
     )
-    assert result is expected_result
+    assert worker_result == SimulationGameResult(
+        game_id=4,
+        result=expected_result,
+    )
 
 
 def test_worker_passes_custom_player_values() -> None:
@@ -115,7 +163,7 @@ def test_worker_passes_custom_player_values() -> None:
     )
 
 
-def test_worker_preserves_game_id() -> None:
+def test_worker_preserves_game_id_in_result() -> None:
     deck = create_deck()
 
     simulator = Mock(
@@ -127,15 +175,12 @@ def test_worker_preserves_game_id() -> None:
         simulator=simulator,
     )
 
-    worker.run_game(
+    worker_result = worker.run_game(
         deck,
         game_id=123,
     )
 
-    assert (
-        simulator.simulate_game.call_args.kwargs["game_id"]
-        == 123
-    )
+    assert worker_result.game_id == 123
 
 
 @pytest.mark.parametrize(
@@ -171,7 +216,7 @@ def test_worker_rejects_negative_game_id(
     simulator.simulate_game.assert_not_called()
 
 
-def test_worker_returns_simulator_result_without_copying() -> None:
+def test_worker_preserves_simulator_result_without_copying() -> None:
     deck = create_deck()
     expected_result = create_result()
 
@@ -184,9 +229,9 @@ def test_worker_returns_simulator_result_without_copying() -> None:
         simulator=simulator,
     )
 
-    result = worker.run_game(
+    worker_result = worker.run_game(
         deck,
         game_id=0,
     )
 
-    assert result is expected_result
+    assert worker_result.result is expected_result
