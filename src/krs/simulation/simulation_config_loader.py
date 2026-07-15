@@ -66,7 +66,10 @@ class SimulationConfigLoader:
         seed = raw_data.get(
             "seed",
         )
-
+        workers = raw_data.get(
+            "workers",
+            1,
+        )
         mulligan = raw_data.get(
             "mulligan",
             {},
@@ -89,6 +92,10 @@ class SimulationConfigLoader:
             max_turns,
             field_name="max_turns",
         )
+        workers = self._read_integer(
+            workers,
+            field_name="workers",
+        )
 
         if seed is not None:
             seed = self._read_integer(
@@ -107,12 +114,17 @@ class SimulationConfigLoader:
             )
 
         mulligan_enabled = self._read_boolean(
-            mulligan.get("enabled", True),
+            mulligan.get(
+                "enabled",
+                True,
+            ),
             field_name="mulligan.enabled",
         )
-
         save_replays = self._read_boolean(
-            replay.get("enabled", False),
+            replay.get(
+                "enabled",
+                False,
+            ),
             field_name="replay.enabled",
         )
 
@@ -123,6 +135,7 @@ class SimulationConfigLoader:
             seed=seed,
             mulligan_enabled=mulligan_enabled,
             save_replays=save_replays,
+            workers=workers,
         )
 
     @staticmethod

@@ -15,7 +15,6 @@ def write_config(
         content,
         encoding="utf-8",
     )
-
     return path
 
 
@@ -29,10 +28,9 @@ strategy: combo
 games: 5000
 max_turns: 8
 seed: 12345
-
+workers: 4
 mulligan:
   enabled: false
-
 replay:
   enabled: true
 """,
@@ -44,6 +42,7 @@ replay:
     assert config.games == 5000
     assert config.max_turns == 8
     assert config.seed == 12345
+    assert config.workers == 4
     assert config.mulligan_enabled is False
     assert config.save_replays is True
 
@@ -64,6 +63,7 @@ strategy: balanced
     assert config.games == 1000
     assert config.max_turns == 6
     assert config.seed is None
+    assert config.workers == 1
     assert config.mulligan_enabled is True
     assert config.save_replays is False
 
@@ -93,6 +93,16 @@ def test_missing_file_is_rejected(
         match="Simulation config file not found",
     ):
         SimulationConfigLoader().load(path)
+
+
+def test_directory_path_is_rejected(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Simulation config path is not a file",
+    ):
+        SimulationConfigLoader().load(tmp_path)
 
 
 def test_empty_file_is_rejected(
@@ -128,6 +138,23 @@ def test_non_mapping_config_is_rejected(
         SimulationConfigLoader().load(path)
 
 
+def test_strategy_rejects_non_string_value(
+    tmp_path: Path,
+) -> None:
+    path = write_config(
+        tmp_path / "strategy.yaml",
+        """
+strategy: 123
+""",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="strategy must be a string",
+    ):
+        SimulationConfigLoader().load(path)
+
+
 @pytest.mark.parametrize(
     ("field_name", "content"),
     [
@@ -150,6 +177,13 @@ max_turns: six
             """
 strategy: balanced
 seed: random
+""",
+        ),
+        (
+            "workers",
+            """
+strategy: balanced
+workers: four
 """,
         ),
     ],
@@ -195,6 +229,13 @@ strategy: balanced
 seed: true
 """,
         ),
+        (
+            "workers",
+            """
+strategy: balanced
+workers: true
+""",
+        ),
     ],
 )
 def test_integer_fields_reject_boolean_values(
@@ -210,6 +251,33 @@ def test_integer_fields_reject_boolean_values(
     with pytest.raises(
         ValueError,
         match=rf"{field_name} must be an integer",
+    ):
+        SimulationConfigLoader().load(path)
+
+
+@pytest.mark.parametrize(
+    "workers",
+    [
+        0,
+        -1,
+        -10,
+    ],
+)
+def test_workers_must_be_positive(
+    tmp_path: Path,
+    workers: int,
+) -> None:
+    path = write_config(
+        tmp_path / "workers.yaml",
+        f"""
+strategy: balanced
+workers: {workers}
+""",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Number of workers must be greater than zero",
     ):
         SimulationConfigLoader().load(path)
 
@@ -250,36 +318,33 @@ replay: false
         SimulationConfigLoader().load(path)
 
 
-def test_nested_boolean_values_are_validated(
+def test_yaml_boolean_values_are_supported(
     tmp_path: Path,
 ) -> None:
     path = write_config(
-        tmp_path / "invalid-boolean.yaml",
+        tmp_path / "boolean.yaml",
         """
 strategy: balanced
-
 mulligan:
   enabled: yes
-
 replay:
   enabled: no
 """,
     )
 
-    # YAMLでは yes/no がboolとして解釈される場合があります。
     config = SimulationConfigLoader().load(path)
 
     assert config.mulligan_enabled is True
     assert config.save_replays is False
 
+
 def test_mulligan_enabled_rejects_string(
     tmp_path: Path,
 ) -> None:
     path = write_config(
-        tmp_path / "string-boolean.yaml",
+        tmp_path / "mulligan-string.yaml",
         """
 strategy: balanced
-
 mulligan:
   enabled: "true"
 """,
@@ -288,5 +353,24 @@ mulligan:
     with pytest.raises(
         ValueError,
         match="mulligan.enabled must be a boolean",
+    ):
+        SimulationConfigLoader().load(path)
+
+
+def test_replay_enabled_rejects_string(
+    tmp_path: Path,
+) -> None:
+    path = write_config(
+        tmp_path / "replay-string.yaml",
+        """
+strategy: balanced
+replay:
+  enabled: "false"
+""",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="replay.enabled must be a boolean",
     ):
         SimulationConfigLoader().load(path)
