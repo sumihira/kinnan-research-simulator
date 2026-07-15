@@ -6,10 +6,13 @@ from krs.actions.activate_kinnan import ActivateKinnanAction
 from krs.actions.draw import DrawAction
 from krs.ai.kinnan_action_factory import KinnanActionFactory
 from krs.ai.strategy_factory import StrategyFactory
+from krs.commanders.kinnan import is_kinnan
+from krs.commanders.kinnan_ability import KINNAN_ACTIVATION_COST
 from krs.engine.action_executor import ActionExecutor
 from krs.game.game_state import GameState
 from krs.game.permanent import Permanent
 from krs.game.phase import Phase
+from krs.game.player import Player
 from krs.game.turn import Turn
 
 
@@ -235,6 +238,84 @@ class GameEngine:
             player_id=player_id,
             source_permanent_id=source_permanent_id,
         )
+
+    def find_activatable_kinnan(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> Permanent | None:
+        """
+        Return the first Kinnan the player can currently activate.
+
+        Kinnan's activated ability does not require tapping the source.
+        Therefore, tapped state and summoning sickness do not prevent
+        activation. The player must control Kinnan and be able to pay
+        the activation cost.
+        """
+        self._validate_running_game(state)
+
+        player = self._get_player_by_id(
+            state=state,
+            player_id=player_id,
+        )
+
+        if not player.mana_pool.can_pay(KINNAN_ACTIVATION_COST):
+            return None
+
+        for permanent in player.battlefield:
+            if permanent.controller_id != player.player_id:
+                continue
+
+            if is_kinnan(permanent):
+                return permanent
+
+        return None
+
+    def execute_kinnan_activation_if_available(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> bool:
+        """
+        Create and execute one Kinnan activation when available.
+
+        Returns True when an activation Action was executed.
+        Returns False when the player has no activatable Kinnan.
+        """
+        source = self.find_activatable_kinnan(
+            state,
+            player_id=player_id,
+        )
+
+        if source is None:
+            return False
+
+        action = self.create_kinnan_activation_action(
+            state,
+            player_id=player_id,
+            source_permanent_id=source.permanent_id,
+        )
+
+        self._action_executor.execute(
+            state,
+            action,
+        )
+
+        return True
+
+    @staticmethod
+    def _get_player_by_id(
+        *,
+        state: GameState,
+        player_id: int,
+    ) -> Player:
+        for player in state.players:
+            if player.player_id == player_id:
+                return player
+
+        raise ValueError(f"Player not found: {player_id}")
 
     @classmethod
     def from_strategy(
