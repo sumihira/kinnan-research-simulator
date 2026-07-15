@@ -11,6 +11,9 @@ from krs.simulation.experiment import (
 )
 from krs.simulation.runner import GoldfishRunResult
 from krs.simulation.simulator import GoldfishSimulator
+from krs.simulation.simulator_factory import (
+    GoldfishSimulatorFactory,
+)
 from krs.simulation.worker import (
     SimulationGameResult,
     SimulationWorker,
@@ -22,20 +25,26 @@ class ExperimentManager:
     """
     Runs every game configured for one simulation experiment.
 
-    A single configured worker executes games sequentially. Two or more
-    configured workers execute games through ThreadPoolExecutor.
+    Sequential execution may use an injected shared worker.
 
-    Worker results retain game IDs, so completion order never changes the
-    deterministic ordering stored in ExperimentResult.
+    Concurrent execution creates an independent simulator and worker for
+    every game through GoldfishSimulatorFactory. This prevents GameEngine
+    and other mutable runtime components from being shared across threads.
     """
 
     simulator: GoldfishSimulator
     worker: SimulationWorker | None = None
+    simulator_factory: GoldfishSimulatorFactory | None = None
 
     def __post_init__(self) -> None:
         if self.worker is None:
             self.worker = SimulationWorker(
                 simulator=self.simulator,
+            )
+
+        if self.simulator_factory is None:
+            self.simulator_factory = GoldfishSimulatorFactory(
+                config=self.simulator.config,
             )
 
     def run(
@@ -101,7 +110,7 @@ class ExperimentManager:
     ) -> tuple[SimulationGameResult, ...]:
         """Execute every configured game on the calling thread."""
         return tuple(
-            self._run_game(
+            self._run_game_with_shared_worker(
                 deck,
                 game_id=game_id,
                 player_id=player_id,
@@ -118,16 +127,16 @@ class ExperimentManager:
         player_name: str,
     ) -> tuple[SimulationGameResult, ...]:
         """
-        Execute configured games through ThreadPoolExecutor.
+        Execute games through independent per-game workers.
 
-        Results are collected in submission order here, but final ordering
-        is still normalized by game_id before aggregation.
+        Every submitted task creates its own GoldfishSimulator, GameEngine,
+        GameStateFactory, and SimulationWorker.
         """
         with ThreadPoolExecutor(
             max_workers=self.simulator.config.workers,
         ) as executor:
             futures = tuple(
-                self._submit_game(
+                self._submit_isolated_game(
                     executor,
                     deck,
                     game_id=game_id,
@@ -144,7 +153,7 @@ class ExperimentManager:
                 for future in futures
             )
 
-    def _submit_game(
+    def _submit_isolated_game(
         self,
         executor: ThreadPoolExecutor,
         deck: Deck,
@@ -153,16 +162,16 @@ class ExperimentManager:
         player_id: int,
         player_name: str,
     ) -> Future[SimulationGameResult]:
-        """Submit one SimulationWorker execution to the executor."""
+        """Submit one isolated game execution to the executor."""
         return executor.submit(
-            self._run_game,
+            self._run_game_with_isolated_worker,
             deck,
             game_id=game_id,
             player_id=player_id,
             player_name=player_name,
         )
 
-    def _run_game(
+    def _run_game_with_shared_worker(
         self,
         deck: Deck,
         *,
@@ -170,13 +179,45 @@ class ExperimentManager:
         player_id: int,
         player_name: str,
     ) -> SimulationGameResult:
-        """Execute one game through the configured SimulationWorker."""
+        """
+        Execute one sequential game with the configured shared worker.
+        """
         worker = self.worker
 
         if worker is None:
             raise RuntimeError(
                 "SimulationWorker has not been initialized."
             )
+
+        return worker.run_game(
+            deck,
+            game_id=game_id,
+            player_id=player_id,
+            player_name=player_name,
+        )
+
+    def _run_game_with_isolated_worker(
+        self,
+        deck: Deck,
+        *,
+        game_id: int,
+        player_id: int,
+        player_name: str,
+    ) -> SimulationGameResult:
+        """
+        Create an isolated simulator and worker, then execute one game.
+        """
+        simulator_factory = self.simulator_factory
+
+        if simulator_factory is None:
+            raise RuntimeError(
+                "GoldfishSimulatorFactory has not been initialized."
+            )
+
+        simulator = simulator_factory.create()
+        worker = SimulationWorker(
+            simulator=simulator,
+        )
 
         return worker.run_game(
             deck,
