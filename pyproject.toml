@@ -1,10 +1,28 @@
+[build-system]
+requires = [
+    "setuptools>=80.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kinnan-research-simulator"
+version = "0.1.0"
+description = "Goldfish and Monte Carlo simulator for Kinnan, Bonder Prodigy"
+requires-python = ">=3.14"
+dependencies = [
+    "openpyxl>=3.1,<4.0",
+    "PyYAML>=6.0,<7.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=9.0,<10.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-ra"
-
-[project]
-dependencies = [
-    "PyYAML>=6.0",
-    "pytest>=9.0"
-]
