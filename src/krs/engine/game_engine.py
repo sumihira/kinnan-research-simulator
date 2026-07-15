@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import random
 
+from krs.actions.activate_kinnan import ActivateKinnanAction
 from krs.actions.draw import DrawAction
+from krs.ai.kinnan_action_factory import KinnanActionFactory
+from krs.ai.strategy_factory import StrategyFactory
 from krs.engine.action_executor import ActionExecutor
 from krs.game.game_state import GameState
+from krs.game.permanent import Permanent
 from krs.game.phase import Phase
 from krs.game.turn import Turn
-from krs.actions.activate_kinnan import ActivateKinnanAction
-from krs.ai.kinnan_hit_selector import KinnanHitSelector
-from krs.commanders.kinnan_ability import KINNAN_LOOK_COUNT
-from krs.game.player import Player
-from krs.ai.strategy_factory import StrategyFactory
-from krs.game.permanent import Permanent
 
 
 class GameEngine:
@@ -20,8 +18,8 @@ class GameEngine:
     Coordinates game flow.
 
     GameEngine creates and executes Actions through ActionExecutor.
-    It does not directly manipulate player zones except for
-    game setup operations such as shuffling.
+    It does not directly manipulate player zones except for game setup
+    operations such as shuffling.
     """
 
     INITIAL_HAND_SIZE = 7
@@ -29,10 +27,12 @@ class GameEngine:
     def __init__(
         self,
         action_executor: ActionExecutor | None = None,
-        kinnan_hit_selector: KinnanHitSelector | None = None,
+        kinnan_action_factory: KinnanActionFactory | None = None,
     ) -> None:
         self._action_executor = action_executor or ActionExecutor()
-        self._kinnan_hit_selector = kinnan_hit_selector or KinnanHitSelector()
+        self._kinnan_action_factory = (
+            kinnan_action_factory or KinnanActionFactory()
+        )
 
     def start_game(self, state: GameState) -> None:
         """
@@ -56,7 +56,6 @@ class GameEngine:
                 experiment_seed=state.seed,
                 player_id=player.player_id,
             )
-
             player.library.shuffle(rng)
 
         for player in state.players:
@@ -98,16 +97,15 @@ class GameEngine:
             return random.Random()
 
         derived_seed = experiment_seed + player_id
-
         return random.Random(derived_seed)
 
     def start_turn(self, state: GameState) -> None:
         """
         Start the active player's turn.
 
-        Resets turn-specific player state, untaps permanents that
-        can untap normally, and removes summoning sickness from
-        permanents that entered before the current turn.
+        Resets turn-specific player state, untaps permanents that can untap
+        normally, and removes summoning sickness from permanents that entered
+        before the current turn.
         """
         self._validate_running_game(state)
 
@@ -117,7 +115,6 @@ class GameEngine:
             raise ValueError("Active player could not be resolved.")
 
         state.phase = Phase.UNTAP
-
         player.land_played_this_turn = 0
         player.mana_pool.clear()
 
@@ -128,32 +125,28 @@ class GameEngine:
             if permanent.entered_turn < state.turn_number:
                 permanent.summoning_sick = False
 
-
     def advance_phase(self, state: GameState) -> None:
         """
         Advance to the next phase in the current turn.
 
-        Entering the draw phase automatically draws one card
-        for the active player.
+        Entering the draw phase automatically draws one card for the active
+        player.
         """
         self._validate_running_game(state)
 
         if state.phase is Phase.END:
             raise ValueError(
-                "Cannot advance beyond END phase. Start a new turn instead."
+                "Cannot advance beyond END phase. "
+                "Start a new turn instead."
             )
 
         state.phase = Turn.next_phase(state.phase)
-
         self._handle_phase_entry(state)
 
     def _handle_phase_entry(self, state: GameState) -> None:
-        """
-        Execute automatic processing that occurs when entering a phase.
-        """
+        """Execute automatic processing that occurs when entering a phase."""
         if state.phase is Phase.DRAW:
             self._execute_draw_step(state)
-
 
     def _execute_draw_step(self, state: GameState) -> None:
         """
@@ -179,8 +172,8 @@ class GameEngine:
         """
         End the current turn and begin the next turn.
 
-        Version 1 uses one active player, but active_player_index
-        is still advanced for future multiplayer support.
+        Version 1 uses one active player, but active_player_index is still
+        advanced for future multiplayer support.
         """
         self._validate_running_game(state)
 
@@ -201,7 +194,6 @@ class GameEngine:
 
         self.start_turn(state)
 
-
     @staticmethod
     def _can_untap_during_untap_step(
         permanent: Permanent,
@@ -210,10 +202,7 @@ class GameEngine:
             if ability.ability_type != "skip_normal_untap":
                 continue
 
-            if (
-                ability.parameters.get("applies_during")
-                == "untap_step"
-            ):
+            if ability.parameters.get("applies_during") == "untap_step":
                 return False
 
         return True
@@ -229,7 +218,6 @@ class GameEngine:
         if not state.players:
             raise ValueError("Game has no players.")
 
-        
     def create_kinnan_activation_action(
         self,
         state: GameState,
@@ -238,52 +226,16 @@ class GameEngine:
         source_permanent_id: int,
     ) -> ActivateKinnanAction:
         """
-        Create a Kinnan activation Action using the configured selector.
+        Create a Kinnan activation Action through KinnanActionFactory.
 
         This method does not execute the Action.
         """
-        player = self._get_player_by_id(
+        return self._kinnan_action_factory.create(
             state=state,
             player_id=player_id,
-        )
-
-        reveal_count = min(
-            KINNAN_LOOK_COUNT,
-            len(player.library),
-        )
-
-        revealed_cards = player.library.peek(
-            reveal_count
-        )
-
-        selected_card = self._kinnan_hit_selector.select(
-            revealed_cards
-        )
-
-        return ActivateKinnanAction(
-            player_id=player_id,
-            turn_number=state.turn_number,
             source_permanent_id=source_permanent_id,
-            selected_card_id=(
-                selected_card.id
-                if selected_card is not None
-                else None
-            ),
         )
 
-    @staticmethod
-    def _get_player_by_id(
-        state: GameState,
-        player_id: int,
-    ) -> Player:
-        for player in state.players:
-            if player.player_id == player_id:
-                return player
-
-        raise ValueError(
-            f"Player not found: {player_id}"
-        )
-    
     @classmethod
     def from_strategy(
         cls,
@@ -292,16 +244,13 @@ class GameEngine:
         action_executor: ActionExecutor | None = None,
         strategy_factory: StrategyFactory | None = None,
     ) -> GameEngine:
-        """
-        Create a GameEngine configured with the selected AI strategy.
-        """
+        """Create a GameEngine configured with the selected AI strategy."""
         factory = strategy_factory or StrategyFactory()
-
-        selector = factory.create_kinnan_hit_selector(
-            strategy_name
-        )
+        selector = factory.create_kinnan_hit_selector(strategy_name)
 
         return cls(
             action_executor=action_executor,
-            kinnan_hit_selector=selector,
+            kinnan_action_factory=KinnanActionFactory(
+                hit_selector=selector,
+            ),
         )
