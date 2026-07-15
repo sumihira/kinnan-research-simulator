@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from html import escape
 from pathlib import Path
 
+from krs.report.graph import (
+    DistributionData,
+    DistributionPoint,
+    ExperimentGraphData,
+    GraphDataReporter,
+)
 from krs.simulation.experiment import ExperimentResult
 from krs.simulation.runner import GoldfishRunResult
 
@@ -15,9 +21,14 @@ class HtmlExperimentReporter:
 
     The report embeds its stylesheet and requires no external assets.
     Existing simulation statistics are displayed without recalculation.
+
+    Graph-ready distribution data is delegated to GraphDataReporter.
     """
 
     title: str = "Kinnan Research Simulator Report"
+    graph_data_reporter: GraphDataReporter = field(
+        default_factory=GraphDataReporter,
+    )
 
     def __post_init__(self) -> None:
         if not self.title.strip():
@@ -27,7 +38,11 @@ class HtmlExperimentReporter:
         self,
         result: ExperimentResult,
     ) -> str:
-        """Return a complete standalone HTML document."""
+        """
+        Return a complete standalone HTML document.
+        """
+        graph_data = self.graph_data_reporter.build(result)
+
         return "\n".join(
             (
                 "<!DOCTYPE html>",
@@ -48,6 +63,7 @@ class HtmlExperimentReporter:
                 self._render_header(result),
                 self._render_summary(result),
                 self._render_config(result),
+                self._render_graphs(graph_data),
                 self._render_games(result),
                 "  </main>",
                 "</body>",
@@ -97,6 +113,9 @@ class HtmlExperimentReporter:
         self,
         result: ExperimentResult,
     ) -> str:
+        """
+        Render the report title and headline win rate.
+        """
         summary = result.summary
         win_rate_percent = summary.win_rate * 100.0
 
@@ -134,6 +153,9 @@ class HtmlExperimentReporter:
         self,
         result: ExperimentResult,
     ) -> str:
+        """
+        Render aggregate experiment metrics.
+        """
         summary = result.summary
 
         fastest_win_turn = (
@@ -204,6 +226,9 @@ class HtmlExperimentReporter:
         self,
         result: ExperimentResult,
     ) -> str:
+        """
+        Render simulation configuration.
+        """
         config = result.config
 
         seed = (
@@ -278,10 +303,161 @@ class HtmlExperimentReporter:
             )
         )
 
+    def _render_graphs(
+        self,
+        graph_data: ExperimentGraphData,
+    ) -> str:
+        """
+        Render all graph-ready experiment distributions.
+        """
+        return "\n".join(
+            (
+                '    <section aria-labelledby="graphs-heading">',
+                '      <h2 id="graphs-heading">Distributions</h2>',
+                '      <div class="graph-grid">',
+                self._render_distribution(
+                    graph_data.win_turn_distribution,
+                    title="Win Turn Distribution",
+                    value_label="Turn",
+                ),
+                self._render_distribution(
+                    graph_data.kinnan_activation_distribution,
+                    title="Kinnan Activation Distribution",
+                    value_label="Activations",
+                ),
+                "      </div>",
+                "    </section>",
+            )
+        )
+
+    def _render_distribution(
+        self,
+        distribution: DistributionData,
+        *,
+        title: str,
+        value_label: str,
+    ) -> str:
+        """
+        Render one frequency distribution as a CSS bar chart.
+        """
+        distribution_id = self._distribution_id(
+            distribution.name
+        )
+
+        if not distribution.points:
+            content = "\n".join(
+                (
+                    '          <p class="empty-distribution">',
+                    "            No observations available.",
+                    "          </p>",
+                )
+            )
+        else:
+            content = "\n".join(
+                self._render_distribution_point(
+                    point,
+                    value_label=value_label,
+                )
+                for point in distribution.points
+            )
+
+        return "\n".join(
+            (
+                (
+                    '        <article class="distribution-card" '
+                    f'data-distribution="{escape(distribution.name)}">'
+                ),
+                (
+                    f'          <h3 id="{distribution_id}-heading">'
+                    f"{escape(title)}"
+                    "</h3>"
+                ),
+                (
+                    '          <p class="distribution-total">'
+                    f"{distribution.total_observations:,} observations"
+                    "</p>"
+                ),
+                (
+                    '          <div class="distribution-chart" '
+                    f'aria-labelledby="{distribution_id}-heading">'
+                ),
+                content,
+                "          </div>",
+                "        </article>",
+            )
+        )
+
+    @staticmethod
+    def _render_distribution_point(
+        point: DistributionPoint,
+        *,
+        value_label: str,
+    ) -> str:
+        """
+        Render one distribution observation as a horizontal bar.
+        """
+        percentage = point.percentage * 100.0
+        escaped_value_label = escape(value_label)
+
+        return "\n".join(
+            (
+                (
+                    '            <div class="distribution-row" '
+                    f'data-value="{point.value}">'
+                ),
+                '              <div class="distribution-label">',
+                (
+                    "                "
+                    f"{escaped_value_label} {point.value}"
+                ),
+                "              </div>",
+                '              <div class="distribution-bar-area">',
+                '                <div class="distribution-track">',
+                (
+                    '                  <div class="distribution-bar" '
+                    f'style="width: {percentage:.6f}%">'
+                    "</div>"
+                ),
+                "                </div>",
+                "              </div>",
+                '              <div class="distribution-count">',
+                (
+                    "                "
+                    f"{point.count:,} ({percentage:.1f}%)"
+                ),
+                "              </div>",
+                "            </div>",
+            )
+        )
+
+    @staticmethod
+    def _distribution_id(
+        name: str,
+    ) -> str:
+        """
+        Convert a distribution name into a safe HTML identifier.
+        """
+        normalized = "".join(
+            character
+            if character.isalnum()
+            else "-"
+            for character in name.casefold()
+        )
+
+        normalized = normalized.strip("-")
+
+        if not normalized:
+            return "distribution"
+
+        return normalized
+
     def _render_games(
         self,
         result: ExperimentResult,
     ) -> str:
+        """
+        Render individual Goldfish game results.
+        """
         rendered_rows = "\n".join(
             self._render_game_row(
                 game_id=game_id,
@@ -328,6 +504,9 @@ class HtmlExperimentReporter:
         game_id: int,
         result: GoldfishRunResult,
     ) -> str:
+        """
+        Render one individual Goldfish game row.
+        """
         winner = (
             result.winner
             if result.winner is not None
@@ -377,10 +556,16 @@ class HtmlExperimentReporter:
     def _format_boolean(
         value: bool,
     ) -> str:
+        """
+        Format a boolean for human-readable HTML output.
+        """
         return "Yes" if value else "No"
 
     @staticmethod
     def _stylesheet() -> str:
+        """
+        Return the embedded report stylesheet.
+        """
         return """
     :root {
       color-scheme: light;
@@ -487,6 +672,84 @@ class HtmlExperimentReporter:
       font-weight: 700;
     }
 
+    .graph-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .distribution-card {
+      padding: 18px;
+      border: 1px solid #e2e8ee;
+      border-radius: 10px;
+      background: #fafbfc;
+    }
+
+    .distribution-card h3 {
+      margin-bottom: 6px;
+      font-size: 18px;
+    }
+
+    .distribution-total {
+      margin-bottom: 18px;
+      color: #5f6b76;
+      font-size: 13px;
+    }
+
+    .distribution-chart {
+      display: grid;
+      gap: 12px;
+    }
+
+    .distribution-row {
+      display: grid;
+      grid-template-columns: 96px minmax(120px, 1fr) 112px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .distribution-label {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .distribution-bar-area {
+      min-width: 0;
+    }
+
+    .distribution-track {
+      width: 100%;
+      height: 18px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e8edf2;
+    }
+
+    .distribution-bar {
+      min-width: 2px;
+      height: 100%;
+      border-radius: inherit;
+      background: #2f855a;
+    }
+
+    .distribution-count {
+      color: #46515c;
+      font-size: 13px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .empty-distribution {
+      margin-bottom: 0;
+      padding: 16px;
+      border: 1px dashed #cbd3da;
+      border-radius: 8px;
+      color: #5f6b76;
+      text-align: center;
+    }
+
     .table-container {
       overflow-x: auto;
     }
@@ -526,7 +789,7 @@ class HtmlExperimentReporter:
       background: #edf4fa;
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 720px) {
       .report {
         width: min(100% - 16px, 1200px);
         margin: 8px auto;
@@ -540,6 +803,19 @@ class HtmlExperimentReporter:
 
       .config-table th {
         width: auto;
+      }
+
+      .graph-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .distribution-row {
+        grid-template-columns: 86px minmax(100px, 1fr);
+      }
+
+      .distribution-count {
+        grid-column: 2;
+        text-align: left;
       }
     }
 """.strip()
