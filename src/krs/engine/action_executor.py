@@ -43,6 +43,8 @@ from krs.engine.kinnan_resolution_engine import (
 from krs.engine.battlefield_entry_engine import (
     BattlefieldEntryEngine,
 )
+from krs.replay.replay import Replay
+from krs.replay.replay_event import ReplayEvent
 
 
 class ActionExecutor:
@@ -68,6 +70,7 @@ class ActionExecutor:
         battlefield_entry_engine: (
             BattlefieldEntryEngine | None
         ) = None,
+        replay: Replay | None = None,
     ) -> None:
         self._static_ability_engine = (
             static_ability_engine
@@ -102,54 +105,124 @@ class ActionExecutor:
                 ),
             )
         )
+        self._replay = (
+            replay
+            if replay is not None
+            else Replay()
+        )
+
+    @property
+    def replay(self) -> Replay:
+        """
+        Return the Replay used by this ActionExecutor.
+        """
+        return self._replay
 
     def execute(
         self,
         state: GameState,
         action: Action,
     ) -> None:
+        """
+        Execute one Action and record it when execution succeeds.
+
+        Failed and unsupported Actions are not added to Replay.
+        """
         if isinstance(action, DrawAction):
             self._execute_draw(state, action)
-            return
-
-        if isinstance(action, MulliganAction):
+        elif isinstance(action, MulliganAction):
             self._execute_mulligan(state, action)
-            return
-
-        if isinstance(action, BottomCardsAction):
+        elif isinstance(action, BottomCardsAction):
             self._execute_bottom_cards(state, action)
-            return
-
-        if isinstance(action, PlayLandAction):
+        elif isinstance(action, PlayLandAction):
             self._execute_play_land(state, action)
-            return
-
-        if isinstance(action, TapPermanentAction):
+        elif isinstance(action, TapPermanentAction):
             self._execute_tap_permanent(state, action)
-            return
-
-        if isinstance(action, CastSpellAction):
+        elif isinstance(action, CastSpellAction):
             self._execute_cast_spell(state, action)
-            return
-
-        if isinstance(action, CastCommanderAction):
+        elif isinstance(action, CastCommanderAction):
             self._execute_cast_commander(state, action)
-            return
-
-        if isinstance(action, ReturnCommanderAction):
+        elif isinstance(action, ReturnCommanderAction):
             self._execute_return_commander(state, action)
-            return
-
-        if isinstance(action, ActivateAbilityAction):
+        elif isinstance(action, ActivateAbilityAction):
             self._execute_activate_ability(state, action)
-            return
-
-        if isinstance(action, ActivateKinnanAction):
+        elif isinstance(action, ActivateKinnanAction):
             self._execute_activate_kinnan(state, action)
-            return
+        else:
+            raise NotImplementedError(
+                "Unsupported action type: "
+                f"{type(action).__name__}"
+            )
 
-        raise NotImplementedError(
-            f"Unsupported action type: {type(action).__name__}"
+        self._record_successful_action(
+            state=state,
+            action=action,
+        )
+
+    def _record_successful_action(
+        self,
+        *,
+        state: GameState,
+        action: Action,
+    ) -> None:
+        """
+        Record one successfully completed Action.
+        """
+        self._replay.add(
+            ReplayEvent(
+                turn=action.turn_number,
+                phase=state.phase.name.casefold(),
+                action=self._action_name(action),
+                description=self._action_description(
+                    action
+                ),
+            )
+        )
+
+    @staticmethod
+    def _action_name(
+        action: Action,
+    ) -> str:
+        """
+        Convert an Action class name to snake_case.
+        """
+        class_name = type(action).__name__
+
+        if class_name.endswith("Action"):
+            class_name = class_name[:-6]
+
+        characters: list[str] = []
+
+        for index, character in enumerate(class_name):
+            if character.isupper() and index > 0:
+                previous = class_name[index - 1]
+
+                if (
+                    previous.islower()
+                    or previous.isdigit()
+                ):
+                    characters.append("_")
+
+            characters.append(
+                character.casefold()
+            )
+
+        return "".join(characters)
+
+    @classmethod
+    def _action_description(
+        cls,
+        action: Action,
+    ) -> str:
+        """
+        Create a stable description without depending on
+        Action-specific optional fields.
+        """
+        action_name = cls._action_name(action)
+
+        return (
+            f"Player {action.player_id} executed "
+            f"{action_name}."
         )
 
     def _execute_draw(
