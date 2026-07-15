@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from openpyxl import load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 from krs.report.excel import ExcelExperimentReporter
 from krs.simulation.experiment import (
@@ -74,36 +75,71 @@ def create_experiment_result() -> ExperimentResult:
     )
 
 
-def find_summary_value(
-    sheet: object,
+def create_no_win_experiment_result() -> ExperimentResult:
+    config = SimulationConfig(
+        games=1,
+        seed=None,
+    )
+
+    game_results = (
+        create_game_result(
+            turns_started=6,
+            kinnan_activations=0,
+            reached_turn_limit=True,
+        ),
+    )
+
+    summary = SimulationSummary.from_results(
+        games_requested=config.games,
+        results=game_results,
+    )
+
+    return ExperimentResult(
+        config=config,
+        game_results=game_results,
+        summary=summary,
+    )
+
+
+def find_summary_row(
+    sheet: Worksheet,
     label: str,
-) -> object:
+) -> int:
     for row in range(
         1,
-        sheet.max_row + 1,  # type: ignore[attr-defined]
+        sheet.max_row + 1,
     ):
-        if (
-            sheet.cell(  # type: ignore[attr-defined]
-                row=row,
-                column=1,
-            ).value
-            == label
-        ):
-            return sheet.cell(  # type: ignore[attr-defined]
-                row=row,
-                column=2,
-            ).value
+        if sheet.cell(
+            row=row,
+            column=1,
+        ).value == label:
+            return row
 
     raise AssertionError(
         f"Summary label not found: {label}"
     )
 
 
+def find_summary_value(
+    sheet: Worksheet,
+    label: str,
+) -> object:
+    row = find_summary_row(
+        sheet,
+        label,
+    )
+
+    return sheet.cell(
+        row=row,
+        column=2,
+    ).value
+
+
 def test_create_workbook_creates_expected_sheets() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
     )
 
     try:
@@ -115,27 +151,92 @@ def test_create_workbook_creates_expected_sheets() -> None:
         workbook.close()
 
 
-def test_summary_sheet_contains_title() -> None:
+def test_create_workbook_activates_summary_sheet() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        assert workbook.active is not None
+        assert workbook.active.title == "Summary"
+    finally:
+        workbook.close()
+
+
+def test_summary_sheet_contains_custom_title() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter(
-        title="KRS Analysis",
+        title="KRS Monte Carlo Analysis",
     ).create_workbook(result)
 
     try:
         sheet = workbook["Summary"]
 
-        assert sheet["A1"].value == "KRS Analysis"
-        assert sheet.merged_cells.ranges
+        assert sheet["A1"].value == "KRS Monte Carlo Analysis"
+        assert "A1:B1" in {
+            str(cell_range)
+            for cell_range in sheet.merged_cells.ranges
+        }
     finally:
         workbook.close()
 
 
-def test_summary_sheet_contains_configuration() -> None:
+def test_summary_title_is_formatted() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
+    )
+
+    try:
+        title_cell = workbook["Summary"]["A1"]
+
+        assert title_cell.font.bold is True
+        assert title_cell.font.size == 16
+        assert title_cell.alignment.horizontal == "center"
+        assert title_cell.alignment.vertical == "center"
+        assert title_cell.fill.fill_type == "solid"
+    finally:
+        workbook.close()
+
+
+def test_summary_sheet_contains_section_headers() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Summary"]
+
+        assert sheet["A3"].value == "Configuration"
+
+        summary_row = find_summary_row(
+            sheet,
+            "Summary",
+        )
+
+        assert summary_row > 3
+        assert (
+            sheet.cell(
+                row=summary_row,
+                column=1,
+            ).font.bold
+            is True
+        )
+    finally:
+        workbook.close()
+
+
+def test_summary_sheet_contains_configuration_values() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
     )
 
     try:
@@ -177,7 +278,7 @@ def test_summary_sheet_contains_summary_values() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
     )
 
     try:
@@ -227,11 +328,93 @@ def test_summary_sheet_contains_summary_values() -> None:
         workbook.close()
 
 
-def test_games_sheet_contains_headers() -> None:
+def test_summary_sheet_supports_none_values() -> None:
+    result = create_no_win_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Summary"]
+
+        assert find_summary_value(
+            sheet,
+            "Seed",
+        ) is None
+        assert find_summary_value(
+            sheet,
+            "Fastest win turn",
+        ) is None
+    finally:
+        workbook.close()
+
+
+def test_summary_sheet_uses_expected_number_formats() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
+    )
+
+    try:
+        sheet = workbook["Summary"]
+
+        win_rate_row = find_summary_row(
+            sheet,
+            "Win rate",
+        )
+        average_turns_row = find_summary_row(
+            sheet,
+            "Average turns started",
+        )
+        average_activations_row = find_summary_row(
+            sheet,
+            "Average Kinnan activations",
+        )
+
+        assert sheet.cell(
+            row=win_rate_row,
+            column=2,
+        ).number_format == "0.00%"
+
+        assert sheet.cell(
+            row=average_turns_row,
+            column=2,
+        ).number_format == "0.000"
+
+        assert sheet.cell(
+            row=average_activations_row,
+            column=2,
+        ).number_format == "0.000"
+    finally:
+        workbook.close()
+
+
+def test_summary_sheet_is_configured() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Summary"]
+
+        assert sheet.freeze_panes == "A3"
+        assert sheet.sheet_view.showGridLines is False
+        assert sheet.column_dimensions["A"].width == 31
+        assert sheet.column_dimensions["B"].width == 22
+        assert sheet.auto_filter.ref is not None
+    finally:
+        workbook.close()
+
+
+def test_games_sheet_contains_expected_headers() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
     )
 
     try:
@@ -260,17 +443,44 @@ def test_games_sheet_contains_headers() -> None:
         workbook.close()
 
 
-def test_games_sheet_contains_ordered_game_results() -> None:
+def test_games_headers_are_formatted() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
     )
 
     try:
         sheet = workbook["Games"]
 
-        assert tuple(
+        for column in range(
+            1,
+            7,
+        ):
+            cell = sheet.cell(
+                row=1,
+                column=column,
+            )
+
+            assert cell.font.bold is True
+            assert cell.alignment.horizontal == "center"
+            assert cell.alignment.vertical == "center"
+            assert cell.fill.fill_type == "solid"
+    finally:
+        workbook.close()
+
+
+def test_games_sheet_contains_ordered_game_ids() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Games"]
+
+        game_ids = tuple(
             sheet.cell(
                 row=row,
                 column=1,
@@ -279,13 +489,28 @@ def test_games_sheet_contains_ordered_game_results() -> None:
                 2,
                 5,
             )
-        ) == (
+        )
+
+        assert game_ids == (
             0,
             1,
             2,
         )
+    finally:
+        workbook.close()
 
-        assert tuple(
+
+def test_games_sheet_contains_first_game_result() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Games"]
+
+        row = tuple(
             sheet.cell(
                 row=2,
                 column=column,
@@ -294,7 +519,9 @@ def test_games_sheet_contains_ordered_game_results() -> None:
                 1,
                 7,
             )
-        ) == (
+        )
+
+        assert row == (
             0,
             3,
             2,
@@ -302,26 +529,36 @@ def test_games_sheet_contains_ordered_game_results() -> None:
             True,
             "Player",
         )
+    finally:
+        workbook.close()
 
-        assert tuple(
-            sheet.cell(
-                row=3,
-                column=column,
-            ).value
-            for column in range(
-                1,
-                7,
-            )
-        ) == (
-            1,
-            5,
-            1,
-            False,
-            True,
-            "プレイヤー",
-        )
 
-        assert tuple(
+def test_games_sheet_contains_unicode_winner() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Games"]
+
+        assert sheet["F3"].value == "プレイヤー"
+    finally:
+        workbook.close()
+
+
+def test_games_sheet_contains_non_win_result() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Games"]
+
+        row = tuple(
             sheet.cell(
                 row=4,
                 column=column,
@@ -330,7 +567,9 @@ def test_games_sheet_contains_ordered_game_results() -> None:
                 1,
                 7,
             )
-        ) == (
+        )
+
+        assert row == (
             2,
             8,
             0,
@@ -346,7 +585,7 @@ def test_games_sheet_contains_excel_table() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
     )
 
     try:
@@ -358,59 +597,71 @@ def test_games_sheet_contains_excel_table() -> None:
         workbook.close()
 
 
-def test_workbook_uses_frozen_panes() -> None:
+def test_games_sheet_is_configured() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
     )
 
     try:
-        assert workbook["Summary"].freeze_panes == "A3"
-        assert workbook["Games"].freeze_panes == "A2"
+        sheet = workbook["Games"]
+
+        assert sheet.freeze_panes == "A2"
+        assert sheet.sheet_view.showGridLines is False
+        assert sheet.column_dimensions["A"].width == 12
+        assert sheet.column_dimensions["B"].width == 16
+        assert sheet.column_dimensions["C"].width == 21
+        assert sheet.column_dimensions["D"].width == 21
+        assert sheet.column_dimensions["E"].width == 14
+        assert sheet.column_dimensions["F"].width == 24
     finally:
         workbook.close()
 
 
-def test_summary_uses_expected_number_formats() -> None:
+def test_games_rows_are_center_aligned() -> None:
     result = create_experiment_result()
 
     workbook = ExcelExperimentReporter().create_workbook(
-        result
+        result,
     )
 
     try:
-        sheet = workbook["Summary"]
+        sheet = workbook["Games"]
 
         for row in range(
-            1,
-            sheet.max_row + 1,
+            2,
+            5,
         ):
-            label = sheet.cell(
-                row=row,
-                column=1,
-            ).value
-
-            if label == "Win rate":
-                assert (
-                    sheet.cell(
-                        row=row,
-                        column=2,
-                    ).number_format
-                    == "0.00%"
+            for column in range(
+                1,
+                7,
+            ):
+                cell = sheet.cell(
+                    row=row,
+                    column=column,
                 )
 
-            if label in {
-                "Average turns started",
-                "Average Kinnan activations",
-            }:
-                assert (
-                    sheet.cell(
-                        row=row,
-                        column=2,
-                    ).number_format
-                    == "0.000"
-                )
+                assert cell.alignment.horizontal == "center"
+                assert cell.alignment.vertical == "center"
+    finally:
+        workbook.close()
+
+
+def test_win_and_non_win_rows_have_different_fills() -> None:
+    result = create_experiment_result()
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        sheet = workbook["Games"]
+
+        win_fill = sheet["A2"].fill.fgColor.rgb
+        non_win_fill = sheet["A4"].fill.fgColor.rgb
+
+        assert win_fill != non_win_fill
     finally:
         workbook.close()
 
@@ -429,6 +680,18 @@ def test_write_creates_xlsx_file(
     assert returned_path == output_path
     assert output_path.is_file()
 
+
+def test_written_workbook_can_be_loaded(
+    tmp_path: Path,
+) -> None:
+    result = create_experiment_result()
+    output_path = tmp_path / "experiment.xlsx"
+
+    ExcelExperimentReporter().write(
+        result,
+        output_path,
+    )
+
     workbook = load_workbook(output_path)
 
     try:
@@ -436,10 +699,10 @@ def test_write_creates_xlsx_file(
             "Summary",
             "Games",
         ]
-        assert (
-            workbook["Games"]["F3"].value
-            == "プレイヤー"
+        assert workbook["Summary"]["A1"].value == (
+            "Kinnan Research Simulator Report"
         )
+        assert workbook["Games"]["F3"].value == "プレイヤー"
     finally:
         workbook.close()
 
@@ -455,6 +718,20 @@ def test_write_creates_parent_directories(
         / "excel"
         / "experiment.xlsx"
     )
+
+    ExcelExperimentReporter().write(
+        result,
+        output_path,
+    )
+
+    assert output_path.is_file()
+
+
+def test_write_accepts_uppercase_xlsx_extension(
+    tmp_path: Path,
+) -> None:
+    result = create_experiment_result()
+    output_path = tmp_path / "REPORT.XLSX"
 
     ExcelExperimentReporter().write(
         result,
@@ -484,6 +761,7 @@ def test_write_rejects_directory_path(
     (
         "report.xls",
         "report.csv",
+        "report.html",
         "report",
     ),
 )
@@ -512,6 +790,7 @@ def test_write_rejects_invalid_extension(
         "",
         " ",
         "\t",
+        "\n",
     ),
 )
 def test_reporter_rejects_empty_title(
@@ -526,7 +805,26 @@ def test_reporter_rejects_empty_title(
         )
 
 
-def test_excel_report_does_not_modify_experiment_result(
+def test_create_workbook_does_not_modify_experiment_result() -> None:
+    result = create_experiment_result()
+
+    original_config = result.config
+    original_summary = result.summary
+    original_results = result.game_results
+
+    workbook = ExcelExperimentReporter().create_workbook(
+        result,
+    )
+
+    try:
+        assert result.config is original_config
+        assert result.summary is original_summary
+        assert result.game_results is original_results
+    finally:
+        workbook.close()
+
+
+def test_write_does_not_modify_experiment_result(
     tmp_path: Path,
 ) -> None:
     result = create_experiment_result()
