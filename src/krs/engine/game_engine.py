@@ -4,7 +4,9 @@ import random
 
 from krs.actions.activate_kinnan import ActivateKinnanAction
 from krs.actions.draw import DrawAction
+from krs.actions.play_land import PlayLandAction
 from krs.ai.kinnan_action_factory import KinnanActionFactory
+from krs.ai.land_action_factory import LandActionFactory
 from krs.ai.strategy_factory import StrategyFactory
 from krs.commanders.kinnan import is_kinnan
 from krs.commanders.kinnan_ability import KINNAN_ACTIVATION_COST
@@ -31,26 +33,43 @@ class GameEngine:
         self,
         action_executor: ActionExecutor | None = None,
         kinnan_action_factory: KinnanActionFactory | None = None,
+        land_action_factory: LandActionFactory | None = None,
     ) -> None:
-        self._action_executor = action_executor or ActionExecutor()
+        self._action_executor = (
+            action_executor or ActionExecutor()
+        )
         self._kinnan_action_factory = (
-            kinnan_action_factory or KinnanActionFactory()
+            kinnan_action_factory
+            or KinnanActionFactory()
+        )
+        self._land_action_factory = (
+            land_action_factory
+            or LandActionFactory()
         )
 
-    def start_game(self, state: GameState) -> None:
+    def start_game(
+        self,
+        state: GameState,
+    ) -> None:
         """
         Shuffle each player's library and draw an opening hand.
 
         Version 1 does not perform mulligans yet.
         """
         if not state.players:
-            raise ValueError("Cannot start a game without players.")
+            raise ValueError(
+                "Cannot start a game without players."
+            )
 
         if state.started:
-            raise ValueError("Game has already started.")
+            raise ValueError(
+                "Game has already started."
+            )
 
         if state.game_over:
-            raise ValueError("Cannot start a finished game.")
+            raise ValueError(
+                "Cannot start a finished game."
+            )
 
         self._validate_opening_libraries(state)
 
@@ -84,7 +103,9 @@ class GameEngine:
         """
         for player in state.players:
             if len(player.library) < self.INITIAL_HAND_SIZE:
-                raise IndexError("Not enough cards in library.")
+                raise IndexError(
+                    "Not enough cards in library."
+                )
 
     @staticmethod
     def _create_player_rng(
@@ -99,10 +120,18 @@ class GameEngine:
         if experiment_seed is None:
             return random.Random()
 
-        derived_seed = experiment_seed + player_id
-        return random.Random(derived_seed)
+        derived_seed = (
+            experiment_seed + player_id
+        )
 
-    def start_turn(self, state: GameState) -> None:
+        return random.Random(
+            derived_seed
+        )
+
+    def start_turn(
+        self,
+        state: GameState,
+    ) -> None:
         """
         Start the active player's turn.
 
@@ -115,20 +144,30 @@ class GameEngine:
         player = state.active_player
 
         if player is None:
-            raise ValueError("Active player could not be resolved.")
+            raise ValueError(
+                "Active player could not be resolved."
+            )
 
         state.phase = Phase.UNTAP
         player.land_played_this_turn = 0
         player.mana_pool.clear()
 
         for permanent in player.battlefield:
-            if self._can_untap_during_untap_step(permanent):
+            if self._can_untap_during_untap_step(
+                permanent
+            ):
                 permanent.tapped = False
 
-            if permanent.entered_turn < state.turn_number:
+            if (
+                permanent.entered_turn
+                < state.turn_number
+            ):
                 permanent.summoning_sick = False
 
-    def advance_phase(self, state: GameState) -> None:
+    def advance_phase(
+        self,
+        state: GameState,
+    ) -> None:
         """
         Advance to the next phase in the current turn.
 
@@ -143,15 +182,23 @@ class GameEngine:
                 "Start a new turn instead."
             )
 
-        state.phase = Turn.next_phase(state.phase)
+        state.phase = Turn.next_phase(
+            state.phase
+        )
         self._handle_phase_entry(state)
 
-    def _handle_phase_entry(self, state: GameState) -> None:
-        """Execute automatic processing that occurs when entering a phase."""
+    def _handle_phase_entry(
+        self,
+        state: GameState,
+    ) -> None:
+        """Execute automatic processing when entering a phase."""
         if state.phase is Phase.DRAW:
             self._execute_draw_step(state)
 
-    def _execute_draw_step(self, state: GameState) -> None:
+    def _execute_draw_step(
+        self,
+        state: GameState,
+    ) -> None:
         """
         Draw one card for the active player during the draw step.
 
@@ -160,7 +207,9 @@ class GameEngine:
         player = state.active_player
 
         if player is None:
-            raise ValueError("Active player could not be resolved.")
+            raise ValueError(
+                "Active player could not be resolved."
+            )
 
         self._action_executor.execute(
             state,
@@ -171,7 +220,10 @@ class GameEngine:
             ),
         )
 
-    def end_turn(self, state: GameState) -> None:
+    def end_turn(
+        self,
+        state: GameState,
+    ) -> None:
         """
         End the current turn and begin the next turn.
 
@@ -201,25 +253,91 @@ class GameEngine:
     def _can_untap_during_untap_step(
         permanent: Permanent,
     ) -> bool:
-        for ability in permanent.effective_card.static_abilities:
-            if ability.ability_type != "skip_normal_untap":
+        for ability in (
+            permanent
+            .effective_card
+            .static_abilities
+        ):
+            if (
+                ability.ability_type
+                != "skip_normal_untap"
+            ):
                 continue
 
-            if ability.parameters.get("applies_during") == "untap_step":
+            if (
+                ability.parameters.get(
+                    "applies_during"
+                )
+                == "untap_step"
+            ):
                 return False
 
         return True
 
     @staticmethod
-    def _validate_running_game(state: GameState) -> None:
+    def _validate_running_game(
+        state: GameState,
+    ) -> None:
         if not state.started:
-            raise ValueError("Game has not started.")
+            raise ValueError(
+                "Game has not started."
+            )
 
         if state.game_over:
-            raise ValueError("Game has already finished.")
+            raise ValueError(
+                "Game has already finished."
+            )
 
         if not state.players:
-            raise ValueError("Game has no players.")
+            raise ValueError(
+                "Game has no players."
+            )
+
+    def create_land_play_action(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> PlayLandAction | None:
+        """
+        Create one land-play Action through LandActionFactory.
+
+        None is returned when no land can currently be played.
+        This method does not execute the Action.
+        """
+        self._validate_running_game(state)
+
+        return self._land_action_factory.create(
+            state=state,
+            player_id=player_id,
+        )
+
+    def execute_land_play_if_available(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> bool:
+        """
+        Create and execute one land-play Action when available.
+
+        Returns True when a land was played.
+        Returns False when no legal land play is available.
+        """
+        action = self.create_land_play_action(
+            state,
+            player_id=player_id,
+        )
+
+        if action is None:
+            return False
+
+        self._action_executor.execute(
+            state,
+            action,
+        )
+
+        return True
 
     def create_kinnan_activation_action(
         self,
@@ -236,7 +354,9 @@ class GameEngine:
         return self._kinnan_action_factory.create(
             state=state,
             player_id=player_id,
-            source_permanent_id=source_permanent_id,
+            source_permanent_id=(
+                source_permanent_id
+            ),
         )
 
     def find_activatable_kinnan(
@@ -260,11 +380,16 @@ class GameEngine:
             player_id=player_id,
         )
 
-        if not player.mana_pool.can_pay(KINNAN_ACTIVATION_COST):
+        if not player.mana_pool.can_pay(
+            KINNAN_ACTIVATION_COST
+        ):
             return None
 
         for permanent in player.battlefield:
-            if permanent.controller_id != player.player_id:
+            if (
+                permanent.controller_id
+                != player.player_id
+            ):
                 continue
 
             if is_kinnan(permanent):
@@ -292,10 +417,14 @@ class GameEngine:
         if source is None:
             return False
 
-        action = self.create_kinnan_activation_action(
-            state,
-            player_id=player_id,
-            source_permanent_id=source.permanent_id,
+        action = (
+            self.create_kinnan_activation_action(
+                state,
+                player_id=player_id,
+                source_permanent_id=(
+                    source.permanent_id
+                ),
+            )
         )
 
         self._action_executor.execute(
@@ -315,7 +444,9 @@ class GameEngine:
             if player.player_id == player_id:
                 return player
 
-        raise ValueError(f"Player not found: {player_id}")
+        raise ValueError(
+            f"Player not found: {player_id}"
+        )
 
     @classmethod
     def from_strategy(
@@ -324,14 +455,25 @@ class GameEngine:
         *,
         action_executor: ActionExecutor | None = None,
         strategy_factory: StrategyFactory | None = None,
+        land_action_factory: LandActionFactory | None = None,
     ) -> GameEngine:
-        """Create a GameEngine configured with the selected AI strategy."""
-        factory = strategy_factory or StrategyFactory()
-        selector = factory.create_kinnan_hit_selector(strategy_name)
+        """Create a GameEngine configured with an AI strategy."""
+        factory = (
+            strategy_factory
+            or StrategyFactory()
+        )
+        selector = (
+            factory.create_kinnan_hit_selector(
+                strategy_name
+            )
+        )
 
         return cls(
             action_executor=action_executor,
-            kinnan_action_factory=KinnanActionFactory(
-                hit_selector=selector,
+            kinnan_action_factory=(
+                KinnanActionFactory(
+                    hit_selector=selector,
+                )
             ),
+            land_action_factory=land_action_factory,
         )

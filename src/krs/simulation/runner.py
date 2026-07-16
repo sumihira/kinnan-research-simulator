@@ -161,9 +161,13 @@ class GoldfishRunner:
         state: GameState,
     ) -> int:
         """
-        Execute available Kinnan activations during MAIN.
+        Execute automatic actions during the main phase.
 
-        Returns the number of activations executed during this main phase.
+        The active player first attempts to play one land. Kinnan
+        activations are then executed while they remain available.
+
+        Returns the number of Kinnan activations executed during this
+        main phase.
         """
         player = state.active_player
 
@@ -171,6 +175,11 @@ class GoldfishRunner:
             raise ValueError(
                 "Active player could not be resolved."
             )
+
+        self.game_engine.execute_land_play_if_available(
+            state,
+            player_id=player.player_id,
+        )
 
         activation_count = 0
 
