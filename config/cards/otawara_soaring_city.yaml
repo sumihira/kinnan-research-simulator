@@ -1,0 +1,7 @@
+card_name: Otawara, Soaring City
+
+abilities:
+  mana:
+    - produces:
+        BLUE: 1
+      requires_tap: true

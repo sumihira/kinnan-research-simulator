@@ -409,7 +409,10 @@ class ActionExecutor:
         state: GameState,
         action: TapPermanentAction,
     ) -> None:
-        player = self._get_player(state, action.player_id)
+        player = self._get_player(
+            state,
+            action.player_id,
+        )
 
         if not state.started:
             raise ValueError(
@@ -446,7 +449,17 @@ class ActionExecutor:
                 f"a tap ability: {permanent.effective_card.name}"
             )
 
-        if permanent.is_land:
+        card = permanent.effective_card
+
+        if card.mana_abilities:
+            produced_mana = (
+                self._resolve_configured_mana_ability(
+                    permanent=permanent,
+                    selected_mana=action.mana,
+                    ability_index=action.ability_index,
+                )
+            )
+        elif permanent.is_land:
             produced_mana = {
                 self._resolve_basic_land_mana(
                     permanent=permanent,
@@ -454,18 +467,22 @@ class ActionExecutor:
                 ): 1
             }
         else:
-            produced_mana = self._resolve_nonland_mana_ability(
-                permanent=permanent,
-                selected_mana=action.mana,
-                ability_index=action.ability_index,
+            raise ValueError(
+                f"Mana ability not found at index "
+                f"{action.ability_index}: {card.name}"
             )
 
         permanent.tapped = True
 
         for mana, amount in produced_mana.items():
-            player.mana_pool.add(mana, amount)
+            player.mana_pool.add(
+                mana,
+                amount,
+            )
 
-        amount_generated = sum(produced_mana.values())
+        amount_generated = sum(
+            produced_mana.values()
+        )
 
         additional_mana = (
             self._static_ability_engine
@@ -478,7 +495,10 @@ class ActionExecutor:
         )
 
         for mana, amount in additional_mana.items():
-            player.mana_pool.add(mana, amount)
+            player.mana_pool.add(
+                mana,
+                amount,
+            )
             amount_generated += amount
 
         state.mana_generated += amount_generated
@@ -546,11 +566,17 @@ class ActionExecutor:
         return selected_mana
     
     @staticmethod
-    def _resolve_nonland_mana_ability(
+    def _resolve_configured_mana_ability(
         permanent: Permanent,
         selected_mana: Mana,
         ability_index: int,
     ) -> dict[Mana, int]:
+        """
+        Resolve a configured mana ability on a land or nonland permanent.
+
+        Basic lands without explicit card configuration continue to use
+        their basic land types through _resolve_basic_land_mana().
+        """
         card = permanent.effective_card
 
         if not 0 <= ability_index < len(card.mana_abilities):
@@ -574,9 +600,10 @@ class ActionExecutor:
                 f"{selected_mana}"
             )
 
-        # Version 1では、選択した種類の固定マナをすべて生成する。
         return {
-            selected_mana: ability.produced_mana[selected_mana]
+            selected_mana: ability.produced_mana[
+                selected_mana
+            ]
         }
 
     def _execute_cast_spell(

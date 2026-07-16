@@ -1,0 +1,7 @@
+card_name: Treasure Vault
+
+abilities:
+  mana:
+    - produces:
+        COLORLESS: 1
+      requires_tap: true

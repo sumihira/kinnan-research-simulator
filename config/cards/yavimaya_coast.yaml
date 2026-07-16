@@ -1,0 +1,9 @@
+card_name: Yavimaya Coast
+
+abilities:
+  mana:
+    - produces:
+        COLORLESS: 1
+        BLUE: 1
+        GREEN: 1
+      requires_tap: true

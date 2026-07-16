@@ -1,0 +1,7 @@
+card_name: Ancient Tomb
+
+abilities:
+  mana:
+    - produces:
+        COLORLESS: 2
+      requires_tap: true
