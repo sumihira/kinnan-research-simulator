@@ -91,17 +91,21 @@ class KinnanResolutionEngine:
             selected_card_id=action.selected_card_id,
         )
 
-        selected_permanent = self._create_selected_permanent(
-            state=state,
-            player=player,
-            selected_card=selected_card,
+        selected_permanent = (
+            self._create_selected_permanent(
+                state=state,
+                player=player,
+                selected_card=selected_card,
+            )
         )
 
         if selected_permanent is not None:
             self._battlefield_entry_engine.validate(
                 permanent=selected_permanent,
                 controller=player,
-                chosen_values=self._chosen_values(action),
+                chosen_values=self._chosen_values(
+                    action
+                ),
             )
 
         player.mana_pool.pay(
@@ -135,7 +139,8 @@ class KinnanResolutionEngine:
 
         if selected_card is not None:
             state.kinnan_chain.record_hit(
-                selected_card.id
+                selected_card.id,
+                turn=state.turn_number,
             )
         else:
             state.kinnan_chain.record_miss()

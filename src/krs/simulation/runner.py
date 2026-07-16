@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from krs.engine.game_engine import GameEngine
 from krs.game.game_state import GameState
 from krs.game.phase import Phase
+from krs.statistics.kinnan_chain import (
+    KinnanChainSnapshot,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +24,9 @@ class GoldfishRunResult:
     reached_turn_limit: bool
     game_over: bool
     winner: str | None
+    kinnan_chain: KinnanChainSnapshot = field(
+        default_factory=KinnanChainSnapshot.empty,
+    )
 
 
 @dataclass(slots=True)
@@ -41,14 +47,20 @@ class GoldfishRunner:
 
     def __post_init__(self) -> None:
         if self.max_turns < 1:
-            raise ValueError("max_turns must be at least 1.")
+            raise ValueError(
+                "max_turns must be at least 1."
+            )
 
         if self.max_kinnan_activations_per_turn < 1:
             raise ValueError(
-                "max_kinnan_activations_per_turn must be at least 1."
+                "max_kinnan_activations_per_turn "
+                "must be at least 1."
             )
 
-    def run(self, state: GameState) -> GoldfishRunResult:
+    def run(
+        self,
+        state: GameState,
+    ) -> GoldfishRunResult:
         """
         Run one Goldfish game.
 
@@ -79,7 +91,9 @@ class GoldfishRunner:
             if state.game_over:
                 break
 
-            kinnan_activations += self._execute_main_phase(state)
+            kinnan_activations += (
+                self._execute_main_phase(state)
+            )
 
             if state.game_over:
                 break
@@ -103,10 +117,13 @@ class GoldfishRunner:
             ),
             game_over=state.game_over,
             winner=state.winner,
+            kinnan_chain=state.kinnan_chain.snapshot(),
         )
 
     @staticmethod
-    def _validate_state(state: GameState) -> None:
+    def _validate_state(
+        state: GameState,
+    ) -> None:
         if not state.players:
             raise ValueError(
                 "Cannot run a Goldfish game without players."
@@ -114,10 +131,14 @@ class GoldfishRunner:
 
         if state.game_over:
             raise ValueError(
-                "Cannot run a Goldfish game that has already finished."
+                "Cannot run a Goldfish game that has "
+                "already finished."
             )
 
-    def _advance_to_main_phase(self, state: GameState) -> None:
+    def _advance_to_main_phase(
+        self,
+        state: GameState,
+    ) -> None:
         """
         Advance the current turn to MAIN.
 
@@ -135,7 +156,10 @@ class GoldfishRunner:
         ):
             self.game_engine.advance_phase(state)
 
-    def _execute_main_phase(self, state: GameState) -> int:
+    def _execute_main_phase(
+        self,
+        state: GameState,
+    ) -> int:
         """
         Execute available Kinnan activations during MAIN.
 
@@ -170,7 +194,10 @@ class GoldfishRunner:
 
         return activation_count
 
-    def _advance_to_end_phase(self, state: GameState) -> None:
+    def _advance_to_end_phase(
+        self,
+        state: GameState,
+    ) -> None:
         """Advance the current turn from MAIN to END."""
         while (
             not state.game_over

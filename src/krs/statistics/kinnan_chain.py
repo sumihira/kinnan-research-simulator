@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import Self
 
 
 @dataclass(slots=True)
@@ -17,11 +18,9 @@ class KinnanChainStatistics:
     activation_count: int = 0
     hit_count: int = 0
     miss_count: int = 0
-
     current_chain_length: int = 0
     longest_chain_length: int = 0
     chain_activation_count: int = 0
-
     first_chain_turn: int | None = None
     hit_card_ids: list[str] = field(default_factory=list)
 
@@ -81,12 +80,160 @@ class KinnanChainStatistics:
     def has_chain(self) -> bool:
         return self.longest_chain_length >= 2
 
+    def snapshot(self) -> KinnanChainSnapshot:
+        """
+        Return an immutable copy of the current game statistics.
+
+        The returned snapshot can safely be retained by simulation results
+        without depending on later GameState mutations.
+        """
+        return KinnanChainSnapshot.from_statistics(self)
+
     @staticmethod
     def _validate_turn(turn: int | None) -> None:
         if turn is not None and turn < 1:
             raise ValueError(
                 "Turn must be at least 1."
             )
+
+
+@dataclass(frozen=True, slots=True)
+class KinnanChainSnapshot:
+    """Immutable per-game Kinnan chain statistics."""
+
+    activation_count: int
+    hit_count: int
+    miss_count: int
+    current_chain_length: int
+    longest_chain_length: int
+    chain_activation_count: int
+    first_chain_turn: int | None
+    hit_card_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        counts = (
+            self.activation_count,
+            self.hit_count,
+            self.miss_count,
+            self.current_chain_length,
+            self.longest_chain_length,
+            self.chain_activation_count,
+        )
+
+        if any(value < 0 for value in counts):
+            raise ValueError(
+                "Kinnan chain counts must not be negative."
+            )
+
+        if (
+            self.hit_count + self.miss_count
+            != self.activation_count
+        ):
+            raise ValueError(
+                "hit_count and miss_count must equal "
+                "activation_count."
+            )
+
+        if (
+            self.current_chain_length
+            > self.longest_chain_length
+        ):
+            raise ValueError(
+                "current_chain_length must not exceed "
+                "longest_chain_length."
+            )
+
+        if self.longest_chain_length > self.hit_count:
+            raise ValueError(
+                "longest_chain_length must not exceed hit_count."
+            )
+
+        if self.chain_activation_count > self.hit_count:
+            raise ValueError(
+                "chain_activation_count must not exceed "
+                "hit_count."
+            )
+
+        if len(self.hit_card_ids) != self.hit_count:
+            raise ValueError(
+                "hit_card_ids count must equal hit_count."
+            )
+
+        if any(
+            not card_id.strip()
+            for card_id in self.hit_card_ids
+        ):
+            raise ValueError(
+                "Hit card IDs must not be empty."
+            )
+
+        if (
+            self.first_chain_turn is not None
+            and self.first_chain_turn < 1
+        ):
+            raise ValueError(
+                "first_chain_turn must be at least 1."
+            )
+
+        if (
+            self.first_chain_turn is not None
+            and not self.has_chain
+        ):
+            raise ValueError(
+                "first_chain_turn requires an established chain."
+            )
+
+    @classmethod
+    def from_statistics(
+        cls,
+        statistics: KinnanChainStatistics,
+    ) -> Self:
+        """Create an immutable snapshot from mutable game statistics."""
+        return cls(
+            activation_count=statistics.activation_count,
+            hit_count=statistics.hit_count,
+            miss_count=statistics.miss_count,
+            current_chain_length=(
+                statistics.current_chain_length
+            ),
+            longest_chain_length=(
+                statistics.longest_chain_length
+            ),
+            chain_activation_count=(
+                statistics.chain_activation_count
+            ),
+            first_chain_turn=statistics.first_chain_turn,
+            hit_card_ids=tuple(statistics.hit_card_ids),
+        )
+
+    @classmethod
+    def empty(cls) -> Self:
+        """Return an empty per-game snapshot."""
+        return cls(
+            activation_count=0,
+            hit_count=0,
+            miss_count=0,
+            current_chain_length=0,
+            longest_chain_length=0,
+            chain_activation_count=0,
+            first_chain_turn=None,
+            hit_card_ids=(),
+        )
+
+    @property
+    def hit_rate(self) -> float:
+        if self.activation_count == 0:
+            return 0.0
+
+        return self.hit_count / self.activation_count
+
+    @property
+    def has_activation(self) -> bool:
+        return self.activation_count > 0
+
+    @property
+    def has_chain(self) -> bool:
+        return self.longest_chain_length >= 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,8 +258,10 @@ class KinnanChainSummary:
     @classmethod
     def from_games(
         cls,
-        games: Iterable[KinnanChainStatistics],
-    ) -> KinnanChainSummary:
+        games: Iterable[
+            KinnanChainStatistics | KinnanChainSnapshot
+        ],
+    ) -> Self:
         game_statistics = tuple(games)
         game_count = len(game_statistics)
 
@@ -161,7 +310,7 @@ class KinnanChainSummary:
         )
 
     @classmethod
-    def empty(cls) -> KinnanChainSummary:
+    def empty(cls) -> Self:
         return cls(
             games=0,
             games_with_activation=0,
@@ -197,7 +346,10 @@ class KinnanChainSummary:
         if self.total_activations == 0:
             return 0.0
 
-        return self.chain_activations / self.total_activations
+        return (
+            self.chain_activations
+            / self.total_activations
+        )
 
     def chain_count_through_turn(self, turn: int) -> int:
         self._validate_turn(turn)
@@ -214,7 +366,10 @@ class KinnanChainSummary:
         if self.games == 0:
             return 0.0
 
-        return self.chain_count_through_turn(turn) / self.games
+        return (
+            self.chain_count_through_turn(turn)
+            / self.games
+        )
 
     def _validate_counts(self) -> None:
         count_fields = (
@@ -236,13 +391,19 @@ class KinnanChainSummary:
                 "games_with_activation must not exceed games."
             )
 
-        if self.games_with_chain > self.games_with_activation:
+        if (
+            self.games_with_chain
+            > self.games_with_activation
+        ):
             raise ValueError(
                 "games_with_chain must not exceed "
                 "games_with_activation."
             )
 
-        if self.chain_activations > self.total_activations:
+        if (
+            self.chain_activations
+            > self.total_activations
+        ):
             raise ValueError(
                 "chain_activations must not exceed "
                 "total_activations."
@@ -283,13 +444,19 @@ class KinnanChainSummary:
                 "first_chain_turns."
             )
 
-        if len(self.first_chain_turns) > self.games_with_chain:
+        if (
+            len(self.first_chain_turns)
+            > self.games_with_chain
+        ):
             raise ValueError(
                 "first_chain_turns must not exceed "
                 "games_with_chain."
             )
 
-        if any(turn < 1 for turn in self.first_chain_turns):
+        if any(
+            turn < 1
+            for turn in self.first_chain_turns
+        ):
             raise ValueError(
                 "First chain turns must be at least 1."
             )
@@ -301,7 +468,10 @@ class KinnanChainSummary:
         field_name: str,
         allow_zero_key: bool,
     ) -> None:
-        keys = tuple(key for key, _ in distribution)
+        keys = tuple(
+            key
+            for key, _ in distribution
+        )
 
         if keys != tuple(sorted(set(keys))):
             raise ValueError(
@@ -315,7 +485,10 @@ class KinnanChainSummary:
                 f"{field_name} contains an invalid key."
             )
 
-        if any(count < 1 for _, count in distribution):
+        if any(
+            count < 1
+            for _, count in distribution
+        ):
             raise ValueError(
                 f"{field_name} counts must be at least 1."
             )
@@ -324,7 +497,9 @@ class KinnanChainSummary:
     def _counter_items(
         values: Iterable[int],
     ) -> tuple[tuple[int, int], ...]:
-        return tuple(sorted(Counter(values).items()))
+        return tuple(
+            sorted(Counter(values).items())
+        )
 
     @staticmethod
     def _validate_turn(turn: int) -> None:
