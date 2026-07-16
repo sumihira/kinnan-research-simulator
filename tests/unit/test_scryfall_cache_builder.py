@@ -440,3 +440,106 @@ def test_builder_rejects_directory_output(
             deck_path=deck_path,
             output_path=output_path,
         )
+
+def test_builder_ignores_unrelated_card_without_type_line(
+    tmp_path: Path,
+) -> None:
+    deck_path = tmp_path / "deck.csv"
+    output_path = tmp_path / "cards.json"
+
+    write_deck(deck_path)
+
+    unrelated_card = {
+        "id": "unrelated-id",
+        "name": "Unrelated Special Record",
+    }
+
+    client = Mock(
+        spec=ScryfallBulkDataClient,
+    )
+    client.download_default_cards.return_value = [
+        unrelated_card,
+        card_payload(
+            card_id="kinnan-id",
+            name="Kinnan, Bonder Prodigy",
+            type_line=(
+                "Legendary Creature — Human Druid"
+            ),
+        ),
+        card_payload(
+            card_id="sol-ring-id",
+            name="Sol Ring",
+            type_line="Artifact",
+        ),
+        card_payload(
+            card_id="forest-id",
+            name="Forest",
+            type_line="Basic Land — Forest",
+        ),
+    ]
+
+    result = ScryfallCacheBuilder(
+        client=client,
+    ).build_from_deck(
+        deck_path=deck_path,
+        output_path=output_path,
+    )
+
+    assert result.downloaded_card_count == 3
+
+    decoded = json.loads(
+        output_path.read_text(
+            encoding="utf-8",
+        )
+    )
+
+    assert [
+        card["name"]
+        for card in decoded
+    ] == [
+        "Kinnan, Bonder Prodigy",
+        "Sol Ring",
+        "Forest",
+    ]
+
+def test_builder_rejects_selected_card_without_type_line(
+    tmp_path: Path,
+) -> None:
+    deck_path = tmp_path / "deck.csv"
+    output_path = tmp_path / "cards.json"
+
+    write_deck(deck_path)
+
+    client = Mock(
+        spec=ScryfallBulkDataClient,
+    )
+    client.download_default_cards.return_value = [
+        {
+            "id": "kinnan-id",
+            "name": "Kinnan, Bonder Prodigy",
+        },
+        card_payload(
+            card_id="sol-ring-id",
+            name="Sol Ring",
+            type_line="Artifact",
+        ),
+        card_payload(
+            card_id="forest-id",
+            name="Forest",
+            type_line="Basic Land — Forest",
+        ),
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Selected Scryfall card requires non-empty "
+            "type_line: Kinnan, Bonder Prodigy"
+        ),
+    ):
+        ScryfallCacheBuilder(
+            client=client,
+        ).build_from_deck(
+            deck_path=deck_path,
+            output_path=output_path,
+        )

@@ -199,10 +199,15 @@ class ScryfallBulkDataClient:
         *,
         index: int,
     ) -> None:
+        """
+        Validate only the fields required to index Bulk Data.
+
+        Some unrelated Bulk Data records may omit type_line. Full card
+        validation is performed later only for cards selected by the deck.
+        """
         for field_name in (
             "id",
             "name",
-            "type_line",
         ):
             value = card.get(field_name)
 
@@ -301,6 +306,11 @@ class ScryfallCacheBuilder:
             )
 
             if existing_card is not None:
+                self._validate_selected_card(
+                    existing_card,
+                    requested_name=card_name,
+                )
+
                 resolved_cards.append(existing_card)
                 reused_count += 1
                 continue
@@ -312,6 +322,11 @@ class ScryfallCacheBuilder:
             if bulk_card is None:
                 unresolved_names.append(card_name)
                 continue
+
+            self._validate_selected_card(
+                bulk_card,
+                requested_name=card_name,
+            )
 
             resolved_cards.append(bulk_card)
             downloaded_count += 1
@@ -338,6 +353,31 @@ class ScryfallCacheBuilder:
             reused_card_count=reused_count,
             card_names=card_names,
         )
+    @staticmethod
+    def _validate_selected_card(
+        card: Mapping[str, Any],
+        *,
+        requested_name: str,
+    ) -> None:
+        """
+        Validate fields required by CardCache and CardParser.
+
+        This validation is intentionally applied only to cards requested
+        by the deck, so malformed unrelated Bulk Data records do not block
+        deck-cache creation.
+        """
+        for field_name in (
+            "id",
+            "name",
+            "type_line",
+        ):
+            value = card.get(field_name)
+
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    "Selected Scryfall card requires non-empty "
+                    f"{field_name}: {requested_name}"
+                )
 
     @staticmethod
     def read_deck_card_names(
