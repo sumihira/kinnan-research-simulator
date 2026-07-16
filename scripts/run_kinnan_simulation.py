@@ -7,6 +7,7 @@ from pathlib import Path
 from krs.simulation.file_run_service import (
     FileSimulationRunResult,
     FileSimulationRunService,
+    SimulationConfigOverrides,
 )
 
 
@@ -44,9 +45,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--card-cache",
         type=Path,
         required=True,
-        help=(
-            "Local Scryfall JSON card-cache path."
-        ),
+        help="Local Scryfall JSON card-cache path.",
     )
     parser.add_argument(
         "--card-config-directory",
@@ -71,17 +70,78 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--deck-name",
         default=None,
-        help=(
-            "Optional deck-name override."
-        ),
+        help="Optional deck-name override.",
     )
     parser.add_argument(
         "--player-name",
         default="Player",
         help="Goldfish player name.",
     )
+    parser.add_argument(
+        "--games",
+        type=int,
+        default=None,
+        help=(
+            "Override the number of games from the YAML configuration."
+        ),
+    )
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=None,
+        help=(
+            "Override the maximum turn count from the YAML configuration."
+        ),
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help=(
+            "Override the simulation seed. "
+            "Omit this option to retain the YAML value."
+        ),
+    )
+    parser.add_argument(
+        "--random-seed",
+        action="store_true",
+        help=(
+            "Override the YAML seed with null for non-deterministic runs."
+        ),
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help=(
+            "Override the worker count from the YAML configuration."
+        ),
+    )
 
     return parser
+
+
+def create_config_overrides(
+    arguments: argparse.Namespace,
+) -> SimulationConfigOverrides:
+    """Create validated runtime overrides from parsed CLI arguments."""
+    if arguments.seed is not None and arguments.random_seed:
+        raise ValueError(
+            "--seed and --random-seed cannot be used together."
+        )
+
+    seed_is_overridden = (
+        arguments.seed is not None
+        or arguments.random_seed
+    )
+
+    return SimulationConfigOverrides(
+        games=arguments.games,
+        max_turns=arguments.max_turns,
+        seed=arguments.seed,
+        seed_is_overridden=seed_is_overridden,
+        workers=arguments.workers,
+    )
 
 
 def print_result(
@@ -90,6 +150,7 @@ def print_result(
     summary = result.experiment.summary
     chain = summary.kinnan_chain
     audit = result.audit
+    config = result.config
 
     print()
     print("Kinnan Research Simulator")
@@ -97,6 +158,12 @@ def print_result(
     print(f"Deck                         : {result.deck.name}")
     print(f"Games requested              : {summary.games_requested:,}")
     print(f"Games completed              : {summary.games_completed:,}")
+    print(f"Maximum turns                : {config.max_turns:,}")
+    print(
+        "Seed                         : "
+        f"{config.seed if config.seed is not None else 'random'}"
+    )
+    print(f"Workers                      : {config.workers:,}")
     print(f"Implementation rate          : {audit.implementation_rate:.2%}")
     print(f"Configured unique cards      : {audit.configured_unique_cards:,}")
     print(f"Oracle-only unique cards     : {audit.oracle_only_unique_cards:,}")
@@ -147,6 +214,10 @@ def main() -> int:
     arguments = parser.parse_args()
 
     try:
+        overrides = create_config_overrides(
+            arguments
+        )
+
         result = FileSimulationRunService().run(
             simulation_config_path=(
                 arguments.simulation_config
@@ -159,6 +230,7 @@ def main() -> int:
             output_directory=arguments.output,
             deck_name=arguments.deck_name,
             player_name=arguments.player_name,
+            config_overrides=overrides,
         )
     except (
         FileNotFoundError,

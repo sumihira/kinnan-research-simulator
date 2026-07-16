@@ -30,7 +30,11 @@ from krs.simulation.file_run_service import (
 from krs.simulation.monte_carlo import MonteCarloSimulator
 from krs.simulation.simulation_config import SimulationConfig
 from krs.simulation.simulation_factory import SimulationFactory
-
+from krs.simulation.file_run_service import (
+    FileSimulationRunResult,
+    FileSimulationRunService,
+    SimulationConfigOverrides,
+)
 
 def create_card(
     *,
@@ -157,15 +161,15 @@ def test_run_loads_simulates_and_writes_reports(
     simulation_factory = Mock(
         spec=SimulationFactory,
     )
-    (
-        simulation_factory
-        .create_monte_carlo_run_from_files
-        .return_value
-    ) = (
+    simulation_factory.load_config_and_deck.return_value = (
         config,
         deck,
-        simulator,
     )
+    (
+        simulation_factory
+        .create_monte_carlo_simulator
+        .return_value
+    ) = simulator
 
     report_writer = Mock(
         spec=ExperimentReportBundleWriter,
@@ -221,22 +225,18 @@ def test_run_loads_simulates_and_writes_reports(
         audit_markdown_path=audit_markdown_path,
     )
 
+    simulation_factory.load_config_and_deck.assert_called_once_with(
+        simulation_config_path=tmp_path / "simulation.yaml",
+        deck_path=tmp_path / "kinnan.csv",
+        card_cache_path=tmp_path / "cards.json",
+        card_config_directory=tmp_path / "card_configs",
+        deck_name=None,
+    )
     (
         simulation_factory
-        .create_monte_carlo_run_from_files
-        .assert_called_once_with(
-            simulation_config_path=(
-                tmp_path / "simulation.yaml"
-            ),
-            deck_path=tmp_path / "kinnan.csv",
-            card_cache_path=tmp_path / "cards.json",
-            card_config_directory=(
-                tmp_path / "card_configs"
-            ),
-            deck_name=None,
-        )
+        .create_monte_carlo_simulator
+        .assert_called_once_with(config)
     )
-
     simulator.run.assert_called_once_with(
         deck,
         player_id=7,
@@ -269,15 +269,15 @@ def test_run_forwards_deck_name(
     simulation_factory = Mock(
         spec=SimulationFactory,
     )
-    (
-        simulation_factory
-        .create_monte_carlo_run_from_files
-        .return_value
-    ) = (
+    simulation_factory.load_config_and_deck.return_value = (
         config,
         deck,
-        simulator,
     )
+    (
+        simulation_factory
+        .create_monte_carlo_simulator
+        .return_value
+    ) = simulator
 
     report_writer = Mock(
         spec=ExperimentReportBundleWriter,
@@ -304,7 +304,7 @@ def test_run_forwards_deck_name(
         lambda loader: auditor,
     )
 
-    FileSimulationRunService(
+    result = FileSimulationRunService(
         simulation_factory=simulation_factory,
         report_writer=report_writer,
         audit_reporter=audit_reporter,
@@ -317,19 +317,29 @@ def test_run_forwards_deck_name(
         deck_name="Kinnan Production",
     )
 
+    simulation_factory.load_config_and_deck.assert_called_once_with(
+        simulation_config_path=tmp_path / "simulation.yaml",
+        deck_path=tmp_path / "kinnan.csv",
+        card_cache_path=tmp_path / "cards.json",
+        card_config_directory=tmp_path / "cards",
+        deck_name="Kinnan Production",
+    )
+
     (
         simulation_factory
-        .create_monte_carlo_run_from_files
-        .assert_called_once_with(
-            simulation_config_path=(
-                tmp_path / "simulation.yaml"
-            ),
-            deck_path=tmp_path / "kinnan.csv",
-            card_cache_path=tmp_path / "cards.json",
-            card_config_directory=tmp_path / "cards",
-            deck_name="Kinnan Production",
-        )
+        .create_monte_carlo_simulator
+        .assert_called_once_with(config)
     )
+
+    simulator.run.assert_called_once_with(
+        deck,
+        player_id=0,
+        player_name="Player",
+    )
+
+    assert result.config is config
+    assert result.deck is deck
+    assert result.experiment is experiment
 
 
 def test_service_rejects_nested_audit_filename() -> None:
@@ -353,4 +363,89 @@ def test_service_rejects_invalid_audit_extension() -> None:
     ):
         FileSimulationRunService(
             audit_filename="audit.txt",
+        )
+
+def test_config_overrides_apply_selected_values() -> None:
+    config = SimulationConfig(
+        strategy_name="balanced",
+        games=1_000,
+        max_turns=6,
+        seed=None,
+        workers=1,
+    )
+
+    overridden = SimulationConfigOverrides(
+        games=100,
+        max_turns=8,
+        seed=12345,
+        seed_is_overridden=True,
+        workers=2,
+    ).apply(config)
+
+    assert overridden.games == 100
+    assert overridden.max_turns == 8
+    assert overridden.seed == 12345
+    assert overridden.workers == 2
+    assert overridden.strategy_name == "balanced"
+
+
+def test_empty_config_overrides_return_original_config() -> None:
+    config = create_config()
+
+    overridden = SimulationConfigOverrides().apply(
+        config
+    )
+
+    assert overridden is config
+
+
+def test_config_overrides_can_clear_seed() -> None:
+    config = SimulationConfig(
+        seed=12345,
+    )
+
+    overridden = SimulationConfigOverrides(
+        seed=None,
+        seed_is_overridden=True,
+    ).apply(config)
+
+    assert overridden.seed is None
+
+
+def test_config_overrides_reject_zero_games() -> None:
+    with pytest.raises(
+        ValueError,
+        match="games override must be at least 1",
+    ):
+        SimulationConfigOverrides(
+            games=0,
+        )
+
+
+def test_config_overrides_reject_zero_max_turns() -> None:
+    with pytest.raises(
+        ValueError,
+        match="max_turns override must be at least 1",
+    ):
+        SimulationConfigOverrides(
+            max_turns=0,
+        )
+
+
+def test_config_overrides_reject_zero_workers() -> None:
+    with pytest.raises(
+        ValueError,
+        match="workers override must be at least 1",
+    ):
+        SimulationConfigOverrides(
+            workers=0,
+        )
+
+def test_config_overrides_reject_seed_without_override_flag() -> None:
+    with pytest.raises(
+        ValueError,
+        match="seed requires seed_is_overridden=True",
+    ):
+        SimulationConfigOverrides(
+            seed=12345,
         )

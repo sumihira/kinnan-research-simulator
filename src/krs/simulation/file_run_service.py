@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from krs.cards.card_config_loader import CardConfigLoader
@@ -22,6 +22,82 @@ from krs.simulation.simulation_factory import SimulationFactory
 
 
 @dataclass(frozen=True, slots=True)
+class SimulationConfigOverrides:
+    """
+    Optional command-line overrides for one simulation run.
+
+    None means that the corresponding value loaded from YAML is retained.
+    """
+
+    games: int | None = None
+    max_turns: int | None = None
+    seed: int | None = None
+    seed_is_overridden: bool = False
+    workers: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.games is not None and self.games < 1:
+            raise ValueError(
+                "games override must be at least 1."
+            )
+
+        if self.max_turns is not None and self.max_turns < 1:
+            raise ValueError(
+                "max_turns override must be at least 1."
+            )
+
+        if self.workers is not None and self.workers < 1:
+            raise ValueError(
+                "workers override must be at least 1."
+            )
+
+        if (
+            self.seed is not None
+            and not self.seed_is_overridden
+        ):
+            raise ValueError(
+                "seed requires seed_is_overridden=True."
+            )
+
+    @property
+    def has_overrides(self) -> bool:
+        """Return whether at least one setting is overridden."""
+        return (
+            self.games is not None
+            or self.max_turns is not None
+            or self.seed_is_overridden
+            or self.workers is not None
+        )
+
+    def apply(
+        self,
+        config: SimulationConfig,
+    ) -> SimulationConfig:
+        """Return a SimulationConfig with requested values replaced."""
+        if not self.has_overrides:
+            return config
+
+        replacement_values: dict[str, int | None] = {}
+
+        if self.games is not None:
+            replacement_values["games"] = self.games
+
+        if self.max_turns is not None:
+            replacement_values["max_turns"] = self.max_turns
+
+        if self.seed_is_overridden:
+            replacement_values["seed"] = self.seed
+
+        if self.workers is not None:
+            replacement_values["workers"] = self.workers
+
+        return replace(
+            config,
+            **replacement_values,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class FileSimulationRunResult:
     """
     Stores the result of one file-based Monte Carlo simulation.
@@ -38,7 +114,10 @@ class FileSimulationRunResult:
     audit_markdown_path: Path
 
     def __post_init__(self) -> None:
-        if self.config.games != self.experiment.summary.games_requested:
+        if (
+            self.config.games
+            != self.experiment.summary.games_requested
+        ):
             raise ValueError(
                 "config.games must equal experiment games_requested."
             )
@@ -115,6 +194,7 @@ class FileSimulationRunService:
         deck_name: str | None = None,
         player_id: int = 0,
         player_name: str = "Player",
+        config_overrides: SimulationConfigOverrides | None = None,
     ) -> FileSimulationRunResult:
         """
         Load, audit, simulate, and report one deck.
@@ -122,17 +202,34 @@ class FileSimulationRunService:
         Card configurations may be incomplete. Missing configurations are
         reported by the audit and cards without executable configuration
         remain available as Oracle-data-only cards.
+
+        Optional runtime overrides are applied after loading the YAML
+        configuration and before constructing the simulator.
         """
         output_path = Path(output_directory)
+        overrides = (
+            config_overrides
+            or SimulationConfigOverrides()
+        )
 
-        config, deck, simulator = (
-            self.simulation_factory
-            .create_monte_carlo_run_from_files(
+        config, deck = (
+            self.simulation_factory.load_config_and_deck(
                 simulation_config_path=simulation_config_path,
                 deck_path=deck_path,
                 card_cache_path=card_cache_path,
                 card_config_directory=card_config_directory,
                 deck_name=deck_name,
+            )
+        )
+
+        effective_config = overrides.apply(
+            config
+        )
+
+        simulator = (
+            self.simulation_factory
+            .create_monte_carlo_simulator(
+                effective_config
             )
         )
 
@@ -163,7 +260,7 @@ class FileSimulationRunService:
         )
 
         return FileSimulationRunResult(
-            config=config,
+            config=effective_config,
             deck=deck,
             audit=audit,
             experiment=experiment,
