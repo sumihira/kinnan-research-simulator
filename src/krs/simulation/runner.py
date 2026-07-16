@@ -163,8 +163,10 @@ class GoldfishRunner:
         """
         Execute automatic actions during the main phase.
 
-        The active player first attempts to play one land. Kinnan
-        activations are then executed while they remain available.
+        The active player:
+        1. attempts to play one land;
+        2. attempts to cast Kinnan from the command zone;
+        3. activates Kinnan while activation remains available.
 
         Returns the number of Kinnan activations executed during this
         main phase.
@@ -180,6 +182,12 @@ class GoldfishRunner:
             state,
             player_id=player.player_id,
         )
+
+        if not state.game_over:
+            self.game_engine.execute_kinnan_cast_if_available(
+                state,
+                player_id=player.player_id,
+            )
 
         activation_count = 0
 

@@ -16,6 +16,10 @@ from krs.game.permanent import Permanent
 from krs.game.phase import Phase
 from krs.game.player import Player
 from krs.game.turn import Turn
+from krs.ai.kinnan_cast_plan_factory import (
+    KinnanCastPlan,
+    KinnanCastPlanFactory,
+)
 
 
 class GameEngine:
@@ -34,9 +38,13 @@ class GameEngine:
         action_executor: ActionExecutor | None = None,
         kinnan_action_factory: KinnanActionFactory | None = None,
         land_action_factory: LandActionFactory | None = None,
+        kinnan_cast_plan_factory: (
+            KinnanCastPlanFactory | None
+        ) = None,
     ) -> None:
         self._action_executor = (
-            action_executor or ActionExecutor()
+            action_executor
+            or ActionExecutor()
         )
         self._kinnan_action_factory = (
             kinnan_action_factory
@@ -45,6 +53,10 @@ class GameEngine:
         self._land_action_factory = (
             land_action_factory
             or LandActionFactory()
+        )
+        self._kinnan_cast_plan_factory = (
+            kinnan_cast_plan_factory
+            or KinnanCastPlanFactory()
         )
 
     def start_game(
@@ -339,6 +351,62 @@ class GameEngine:
 
         return True
 
+    def create_kinnan_cast_plan(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> KinnanCastPlan | None:
+        """
+        Create a complete plan for casting Kinnan.
+
+        The returned plan contains the mana-source tap Actions followed by
+        the commander-cast Action. This method does not mutate GameState.
+        """
+        self._validate_running_game(state)
+
+        if state.phase is not Phase.MAIN:
+            return None
+
+        return self._kinnan_cast_plan_factory.create(
+            state=state,
+            player_id=player_id,
+        )
+
+    def execute_kinnan_cast_if_available(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> bool:
+        """
+        Cast Kinnan when a complete legal mana plan is available.
+
+        Every mana-source Action is executed through ActionExecutor before
+        the CastCommanderAction. Returns False without modifying GameState
+        when no complete cast plan can be created.
+        """
+        plan = self.create_kinnan_cast_plan(
+            state,
+            player_id=player_id,
+        )
+
+        if plan is None:
+            return False
+
+        for action in plan.mana_actions:
+            self._action_executor.execute(
+                state,
+                action,
+            )
+
+        self._action_executor.execute(
+            state,
+            plan.cast_action,
+        )
+
+        return True
+
     def create_kinnan_activation_action(
         self,
         state: GameState,
@@ -456,6 +524,9 @@ class GameEngine:
         action_executor: ActionExecutor | None = None,
         strategy_factory: StrategyFactory | None = None,
         land_action_factory: LandActionFactory | None = None,
+        kinnan_cast_plan_factory: (
+            KinnanCastPlanFactory | None
+        ) = None,
     ) -> GameEngine:
         """Create a GameEngine configured with an AI strategy."""
         factory = (
@@ -476,4 +547,7 @@ class GameEngine:
                 )
             ),
             land_action_factory=land_action_factory,
+            kinnan_cast_plan_factory=(
+                kinnan_cast_plan_factory
+            ),
         )
