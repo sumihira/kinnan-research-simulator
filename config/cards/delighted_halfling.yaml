@@ -1,0 +1,7 @@
+card_name: Delighted Halfling
+
+abilities:
+  mana:
+    - produces:
+        COLORLESS: 1
+      requires_tap: true

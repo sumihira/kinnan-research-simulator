@@ -1,0 +1,8 @@
+card_name: Breeding Pool
+
+abilities:
+  mana:
+    - produces:
+        BLUE: 1
+        GREEN: 1
+      requires_tap: true

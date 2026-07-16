@@ -1,0 +1,7 @@
+card_name: Seat of the Synod
+
+abilities:
+  mana:
+    - produces:
+        BLUE: 1
+      requires_tap: true

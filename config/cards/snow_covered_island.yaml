@@ -1,0 +1,7 @@
+card_name: Snow-Covered Island
+
+abilities:
+  mana:
+    - produces:
+        BLUE: 1
+      requires_tap: true
