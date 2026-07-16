@@ -106,6 +106,13 @@ def enrich_card(
             },
         ),
         (
+            "Mana Vault",
+            "Artifact",
+            {
+                Mana.COLORLESS: 3,
+            },
+        ),
+        (
             "Talisman of Curiosity",
             "Artifact",
             {
@@ -268,6 +275,34 @@ def test_grim_monolith_skips_normal_untap() -> None:
         "applies_during": "untap_step",
     }
 
+def test_mana_vault_has_untap_ability() -> None:
+    card = enrich_card(
+        name="Mana Vault",
+    )
+
+    assert len(card.activated_abilities) == 1
+
+    ability = card.activated_abilities[0]
+
+    assert ability.ability_type == "untap_self"
+    assert ability.mana_cost == "{4}"
+    assert ability.requires_tap is False
+    assert ability.parameters == {}
+
+
+def test_mana_vault_skips_normal_untap() -> None:
+    card = enrich_card(
+        name="Mana Vault",
+    )
+
+    assert len(card.static_abilities) == 1
+
+    ability = card.static_abilities[0]
+
+    assert ability.ability_type == "skip_normal_untap"
+    assert ability.parameters == {
+        "applies_during": "untap_step",
+    }
 
 def test_existing_mana_configs_remain_loadable() -> None:
     loader = CardConfigLoader(
@@ -297,6 +332,7 @@ def test_all_new_card_configs_use_snake_case_filenames() -> None:
         CARD_CONFIG_DIRECTORY / "fyndhorn_elves.yaml",
         CARD_CONFIG_DIRECTORY / "gilded_lotus.yaml",
         CARD_CONFIG_DIRECTORY / "grim_monolith.yaml",
+        CARD_CONFIG_DIRECTORY / "mana_vault.yaml",
         CARD_CONFIG_DIRECTORY / "talisman_of_curiosity.yaml",
         CARD_CONFIG_DIRECTORY / "thran_dynamo.yaml",
     )

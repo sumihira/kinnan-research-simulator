@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kinnan Research Simulator Report</title>
+  <style>
+:root {
+      color-scheme: light;
+      font-family:
+        Inter,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+      background: #f4f6f8;
+      color: #17202a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4f6f8;
+    }
+
+    .report {
+      width: min(1200px, calc(100% - 32px));
+      margin: 32px auto;
+    }
+
+    header,
+    section {
+      margin-bottom: 24px;
+      padding: 24px;
+      border: 1px solid #dce1e6;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+      font-size: clamp(28px, 5vw, 42px);
+    }
+
+    h2 {
+      margin-bottom: 18px;
+      font-size: 22px;
+    }
+
+    .subtitle {
+      margin-bottom: 20px;
+      color: #5f6b76;
+    }
+
+    .win-rate-value {
+      margin-bottom: 8px;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 14px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e8edf2;
+    }
+
+    .progress-value {
+      height: 100%;
+      border-radius: inherit;
+      background: #2f855a;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+    }
+
+    .metric-card {
+      min-height: 112px;
+      padding: 16px;
+      border: 1px solid #e2e8ee;
+      border-radius: 10px;
+      background: #fafbfc;
+    }
+
+    .metric-card h3 {
+      margin-bottom: 12px;
+      color: #5f6b76;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .metric-card p {
+      margin-bottom: 0;
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .graph-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .distribution-card {
+      padding: 18px;
+      border: 1px solid #e2e8ee;
+      border-radius: 10px;
+      background: #fafbfc;
+    }
+
+    .distribution-card h3 {
+      margin-bottom: 6px;
+      font-size: 18px;
+    }
+
+    .distribution-total {
+      margin-bottom: 18px;
+      color: #5f6b76;
+      font-size: 13px;
+    }
+
+    .distribution-chart {
+      display: grid;
+      gap: 12px;
+    }
+
+    .distribution-row {
+      display: grid;
+      grid-template-columns: 96px minmax(120px, 1fr) 112px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .distribution-label {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .distribution-bar-area {
+      min-width: 0;
+    }
+
+    .distribution-track {
+      width: 100%;
+      height: 18px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e8edf2;
+    }
+
+    .distribution-bar {
+      min-width: 2px;
+      height: 100%;
+      border-radius: inherit;
+      background: #2f855a;
+    }
+
+    .distribution-count {
+      color: #46515c;
+      font-size: 13px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .empty-distribution {
+      margin-bottom: 0;
+      padding: 16px;
+      border: 1px dashed #cbd3da;
+      border-radius: 8px;
+      color: #5f6b76;
+      text-align: center;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8ee;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    thead th {
+      background: #f7f9fb;
+      font-size: 13px;
+    }
+
+    .config-table th {
+      width: 240px;
+      color: #5f6b76;
+    }
+
+    .games-table tbody tr.win {
+      background: #f1fbf5;
+    }
+
+    .games-table tbody tr.non-win {
+      background: #ffffff;
+    }
+
+    .games-table tbody tr:hover {
+      background: #edf4fa;
+    }
+
+    @media (max-width: 720px) {
+      .report {
+        width: min(100% - 16px, 1200px);
+        margin: 8px auto;
+      }
+
+      header,
+      section {
+        padding: 16px;
+        border-radius: 8px;
+      }
+
+      .config-table th {
+        width: auto;
+      }
+
+      .graph-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .distribution-row {
+        grid-template-columns: 86px minmax(100px, 1fr);
+      }
+
+      .distribution-count {
+        grid-column: 2;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="report">
+    <header>
+      <h1>Kinnan Research Simulator Report</h1>
+      <p class="subtitle">100 games completed</p>
+      <div class="win-rate" aria-label="Win rate">
+        <div class="win-rate-value">0.00%</div>
+        <div class="progress-track">
+          <div class="progress-value" style="width: 0.000000%"></div>
+        </div>
+      </div>
+    </header>
+    <section aria-labelledby="summary-heading">
+      <h2 id="summary-heading">Summary</h2>
+      <div class="metric-grid">
+        <article class="metric-card">
+          <h3>Games completed</h3>
+          <p>100</p>
+        </article>
+        <article class="metric-card">
+          <h3>Wins</h3>
+          <p>0</p>
+        </article>
+        <article class="metric-card">
+          <h3>Non-wins</h3>
+          <p>100</p>
+        </article>
+        <article class="metric-card">
+          <h3>Turn-limit games</h3>
+          <p>100</p>
+        </article>
+        <article class="metric-card">
+          <h3>Average turns</h3>
+          <p>6.000</p>
+        </article>
+        <article class="metric-card">
+          <h3>Average Kinnan activations</h3>
+          <p>0.360</p>
+        </article>
+        <article class="metric-card">
+          <h3>Fastest win turn</h3>
+          <p>N/A</p>
+        </article>
+        <article class="metric-card">
+          <h3>Total Kinnan activations</h3>
+          <p>36</p>
+        </article>
+      </div>
+    </section>
+    <section aria-labelledby="config-heading">
+      <h2 id="config-heading">Configuration</h2>
+      <div class="table-container">
+        <table class="config-table">
+          <tbody>
+          <tr>
+            <th scope="row">Strategy</th>
+            <td>balanced</td>
+          </tr>
+          <tr>
+            <th scope="row">Games requested</th>
+            <td>100</td>
+          </tr>
+          <tr>
+            <th scope="row">Maximum turns</th>
+            <td>6</td>
+          </tr>
+          <tr>
+            <th scope="row">Seed</th>
+            <td>12345</td>
+          </tr>
+          <tr>
+            <th scope="row">Workers</th>
+            <td>1</td>
+          </tr>
+          <tr>
+            <th scope="row">Mulligan enabled</th>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <th scope="row">Save replays</th>
+            <td>No</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section aria-labelledby="graphs-heading">
+      <h2 id="graphs-heading">Distributions</h2>
+      <div class="graph-grid">
+        <article class="distribution-card" data-distribution="win_turn">
+          <h3 id="win-turn-heading">Win Turn Distribution</h3>
+          <p class="distribution-total">0 observations</p>
+          <div class="distribution-chart" aria-labelledby="win-turn-heading">
+          <p class="empty-distribution">
+            No observations available.
+          </p>
+          </div>
+        </article>
+        <article class="distribution-card" data-distribution="kinnan_activations">
+          <h3 id="kinnan-activations-heading">Kinnan Activation Distribution</h3>
+          <p class="distribution-total">100 observations</p>
+          <div class="distribution-chart" aria-labelledby="kinnan-activations-heading">
+            <div class="distribution-row" data-value="0">
+              <div class="distribution-label">
+                Activations 0
+              </div>
+              <div class="distribution-bar-area">
+                <div class="distribution-track">
+                  <div class="distribution-bar" style="width: 80.000000%"></div>
+                </div>
+              </div>
+              <div class="distribution-count">
+                80 (80.0%)
+              </div>
+            </div>
+            <div class="distribution-row" data-value="1">
+              <div class="distribution-label">
+                Activations 1
+              </div>
+              <div class="distribution-bar-area">
+                <div class="distribution-track">
+                  <div class="distribution-bar" style="width: 10.000000%"></div>
+                </div>
+              </div>
+              <div class="distribution-count">
+                10 (10.0%)
+              </div>
+            </div>
+            <div class="distribution-row" data-value="2">
+              <div class="distribution-label">
+                Activations 2
+              </div>
+              <div class="distribution-bar-area">
+                <div class="distribution-track">
+                  <div class="distribution-bar" style="width: 5.000000%"></div>
+                </div>
+              </div>
+              <div class="distribution-count">
+                5 (5.0%)
+              </div>
+            </div>
+            <div class="distribution-row" data-value="3">
+              <div class="distribution-label">
+                Activations 3
+              </div>
+              <div class="distribution-bar-area">
+                <div class="distribution-track">
+                  <div class="distribution-bar" style="width: 4.000000%"></div>
+                </div>
+              </div>
+              <div class="distribution-count">
+                4 (4.0%)
+              </div>
+            </div>
+            <div class="distribution-row" data-value="4">
+              <div class="distribution-label">
+                Activations 4
+              </div>
+              <div class="distribution-bar-area">
+                <div class="distribution-track">
+                  <div class="distribution-bar" style="width: 1.000000%"></div>
+                </div>
+              </div>
+              <div class="distribution-count">
+                1 (1.0%)
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section aria-labelledby="games-heading">
+      <h2 id="games-heading">Games</h2>
+      <div class="table-container">
+        <table class="games-table">
+          <thead>
+            <tr>
+              <th scope="col">Game ID</th>
+              <th scope="col">Turns</th>
+              <th scope="col">Kinnan activations</th>
+              <th scope="col">Turn limit</th>
+              <th scope="col">Game over</th>
+              <th scope="col">Winner</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="non-win" data-game-id="0">
+              <td>0</td>
+              <td>6</td>
+              <td>2</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="1">
+              <td>1</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="2">
+              <td>2</td>
+              <td>6</td>
+              <td>3</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="3">
+              <td>3</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="4">
+              <td>4</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="5">
+              <td>5</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="6">
+              <td>6</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="7">
+              <td>7</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="8">
+              <td>8</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="9">
+              <td>9</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="10">
+              <td>10</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="11">
+              <td>11</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="12">
+              <td>12</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="13">
+              <td>13</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="14">
+              <td>14</td>
+              <td>6</td>
+              <td>4</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="15">
+              <td>15</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="16">
+              <td>16</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="17">
+              <td>17</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="18">
+              <td>18</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="19">
+              <td>19</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="20">
+              <td>20</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="21">
+              <td>21</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="22">
+              <td>22</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="23">
+              <td>23</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="24">
+              <td>24</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="25">
+              <td>25</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="26">
+              <td>26</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="27">
+              <td>27</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="28">
+              <td>28</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="29">
+              <td>29</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="30">
+              <td>30</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="31">
+              <td>31</td>
+              <td>6</td>
+              <td>3</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="32">
+              <td>32</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="33">
+              <td>33</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="34">
+              <td>34</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="35">
+              <td>35</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="36">
+              <td>36</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="37">
+              <td>37</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="38">
+              <td>38</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="39">
+              <td>39</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="40">
+              <td>40</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="41">
+              <td>41</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="42">
+              <td>42</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="43">
+              <td>43</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="44">
+              <td>44</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="45">
+              <td>45</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="46">
+              <td>46</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="47">
+              <td>47</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="48">
+              <td>48</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="49">
+              <td>49</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="50">
+              <td>50</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="51">
+              <td>51</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="52">
+              <td>52</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="53">
+              <td>53</td>
+              <td>6</td>
+              <td>3</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="54">
+              <td>54</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="55">
+              <td>55</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="56">
+              <td>56</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="57">
+              <td>57</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="58">
+              <td>58</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="59">
+              <td>59</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="60">
+              <td>60</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="61">
+              <td>61</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="62">
+              <td>62</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="63">
+              <td>63</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="64">
+              <td>64</td>
+              <td>6</td>
+              <td>2</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="65">
+              <td>65</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="66">
+              <td>66</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="67">
+              <td>67</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="68">
+              <td>68</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="69">
+              <td>69</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="70">
+              <td>70</td>
+              <td>6</td>
+              <td>2</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="71">
+              <td>71</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="72">
+              <td>72</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="73">
+              <td>73</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="74">
+              <td>74</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="75">
+              <td>75</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="76">
+              <td>76</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="77">
+              <td>77</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="78">
+              <td>78</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="79">
+              <td>79</td>
+              <td>6</td>
+              <td>3</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="80">
+              <td>80</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="81">
+              <td>81</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="82">
+              <td>82</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="83">
+              <td>83</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="84">
+              <td>84</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="85">
+              <td>85</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="86">
+              <td>86</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="87">
+              <td>87</td>
+              <td>6</td>
+              <td>1</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="88">
+              <td>88</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="89">
+              <td>89</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="90">
+              <td>90</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="91">
+              <td>91</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="92">
+              <td>92</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="93">
+              <td>93</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="94">
+              <td>94</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="95">
+              <td>95</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="96">
+              <td>96</td>
+              <td>6</td>
+              <td>2</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="97">
+              <td>97</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="98">
+              <td>98</td>
+              <td>6</td>
+              <td>0</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+            <tr class="non-win" data-game-id="99">
+              <td>99</td>
+              <td>6</td>
+              <td>2</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

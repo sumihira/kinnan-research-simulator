@@ -1,0 +1,47 @@
+{
+  "confidence_interval": {
+    "confidence_level": 0.95,
+    "games": 100,
+    "lower_bound": 0.0,
+    "lower_percent": 0.0,
+    "margin_above": 0.03699349820698566,
+    "margin_below": 0.0,
+    "observed_percent": 0.0,
+    "observed_rate": 0.0,
+    "upper_bound": 0.03699349820698566,
+    "upper_percent": 3.6993498206985658,
+    "width": 0.03699349820698566,
+    "wins": 0
+  },
+  "experiment_statistics": {
+    "average_kinnan_activations": 0.36,
+    "average_turns_started": 6.0,
+    "fastest_win_turn": null,
+    "kinnan_activation_standard_deviation": 0.8309031231136396,
+    "turn_limit_games": 100,
+    "turn_limit_percent": 100.0,
+    "turn_limit_rate": 1.0,
+    "turn_standard_deviation": 0.0
+  },
+  "overview": {
+    "games_completed": 100,
+    "has_wins": false,
+    "non_wins": 100,
+    "win_rate": 0.0,
+    "win_rate_percent": 0.0,
+    "wins": 0
+  },
+  "win_turn_statistics": {
+    "average_win_turn": null,
+    "fastest_win_turn": null,
+    "has_wins": false,
+    "median_win_turn": null,
+    "percentile_90_win_turn": null,
+    "percentile_95_win_turn": null,
+    "slowest_win_turn": null,
+    "win_rate": 0.0,
+    "win_rate_percent": 0.0,
+    "win_turn_standard_deviation": null,
+    "wins": 0
+  }
+}

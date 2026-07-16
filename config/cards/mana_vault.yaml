@@ -1,0 +1,18 @@
+card_name: Mana Vault
+
+abilities:
+  mana:
+    - produces:
+        COLORLESS: 3
+      requires_tap: true
+
+  activated:
+    - ability_type: untap_self
+      mana_cost: "{4}"
+      requires_tap: false
+      parameters: {}
+
+  static:
+    - ability_type: skip_normal_untap
+      parameters:
+        applies_during: untap_step
