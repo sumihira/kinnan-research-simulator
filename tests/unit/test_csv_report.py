@@ -305,6 +305,16 @@ def test_csv_files_use_expected_headers(
         "total_kinnan_activations",
         "average_kinnan_activations",
         "fastest_win_turn",
+        "kinnan_chain_games",
+        "kinnan_activation_games",
+        "kinnan_chain_games_count",
+        "kinnan_overall_chain_rate",
+        "kinnan_activation_game_chain_rate",
+        "kinnan_total_chain_activations",
+        "kinnan_chain_activations",
+        "kinnan_activation_chain_rate",
+        "kinnan_average_longest_chain",
+        "kinnan_max_chain",
     ]
 
     assert games_header == [

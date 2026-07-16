@@ -174,9 +174,14 @@ class CsvExperimentReporter:
     ) -> CsvRow:
         """
         Convert configuration and summary values into one CSV row.
+
+        Aggregate Kinnan-chain metrics are appended as scalar columns.
+        Distribution and turn-level chain data are intentionally excluded
+        because they require dedicated multi-row CSV reports.
         """
         config = result.config
         summary = result.summary
+        chain = summary.kinnan_chain
 
         return {
             "strategy_name": config.strategy_name,
@@ -211,6 +216,32 @@ class CsvExperimentReporter:
                 if summary.fastest_win_turn is None
                 else summary.fastest_win_turn
             ),
+            "kinnan_chain_games": chain.games,
+            "kinnan_activation_games": (
+                chain.games_with_activation
+            ),
+            "kinnan_chain_games_count": (
+                chain.games_with_chain
+            ),
+            "kinnan_overall_chain_rate": (
+                chain.overall_chain_rate
+            ),
+            "kinnan_activation_game_chain_rate": (
+                chain.activation_game_chain_rate
+            ),
+            "kinnan_total_chain_activations": (
+                chain.total_activations
+            ),
+            "kinnan_chain_activations": (
+                chain.chain_activations
+            ),
+            "kinnan_activation_chain_rate": (
+                chain.activation_chain_rate
+            ),
+            "kinnan_average_longest_chain": (
+                chain.average_longest_chain
+            ),
+            "kinnan_max_chain": chain.max_chain,
         }
 
     @staticmethod
