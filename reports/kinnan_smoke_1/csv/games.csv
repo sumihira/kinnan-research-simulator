@@ -1,0 +1,2 @@
+game_id,turns_started,kinnan_activations,reached_turn_limit,game_over,winner
+0,6,2,True,False,

@@ -1,11 +1,12 @@
-﻿1,"Kinnan, Bonder Prodigy",commander
+quantity,name,section
+1,"Kinnan, Bonder Prodigy",commander
 1,Ancient Tomb,main
 1,Arcane Signet,main
 1,Astral Dragon,main
 1,Aurora Awakener,main
 1,Auton Soldier,main
 1,Badgermole Cub,main
-1,Barkchannel Pathway,main
+1,Seat of the Synod,main
 1,Basalt Monolith,main
 1,Biomancer's Familiar,main
 1,Birds of Paradise,main
@@ -28,7 +29,7 @@
 1,Deceiver Exarch,main
 1,Delighted Halfling,main
 1,Devoted Druid,main
-1,Dol Amroth,main
+1,"Minamo, School at Water's Edge",main
 1,Elvish Mystic,main
 1,Enduring Vitality,main
 1,Expedition Map,main
@@ -98,3 +99,4 @@
 1,Worldly Tutor,main
 1,Y'shtola Rhul,main
 1,Yavimaya Coast,main
+
