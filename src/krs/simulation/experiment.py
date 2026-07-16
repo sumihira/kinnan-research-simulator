@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Self
 
 from krs.simulation.runner import GoldfishRunResult
 from krs.simulation.simulation_config import SimulationConfig
+from krs.statistics.kinnan_chain import KinnanChainSummary
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,6 +15,9 @@ class SimulationSummary:
 
     A game is counted as a win when it finished and has a winner.
     Games without a winner are counted as non-winning games.
+
+    Kinnan chain statistics are aggregated from the immutable per-game
+    snapshots retained by GoldfishRunResult.
     """
 
     games_requested: int
@@ -24,6 +28,9 @@ class SimulationSummary:
     total_turns_started: int
     total_kinnan_activations: int
     fastest_win_turn: int | None
+    kinnan_chain: KinnanChainSummary = field(
+        default_factory=KinnanChainSummary.empty,
+    )
 
     def __post_init__(self) -> None:
         if self.games_requested < 1:
@@ -42,10 +49,14 @@ class SimulationSummary:
             )
 
         if self.wins < 0:
-            raise ValueError("wins must not be negative.")
+            raise ValueError(
+                "wins must not be negative."
+            )
 
         if self.non_wins < 0:
-            raise ValueError("non_wins must not be negative.")
+            raise ValueError(
+                "non_wins must not be negative."
+            )
 
         if self.wins + self.non_wins != self.games_completed:
             raise ValueError(
@@ -80,6 +91,8 @@ class SimulationSummary:
                 "fastest_win_turn must be at least 1."
             )
 
+        self._validate_kinnan_chain()
+
     @property
     def win_rate(self) -> float:
         """Return the win rate from 0.0 through 1.0."""
@@ -94,7 +107,10 @@ class SimulationSummary:
         if self.games_completed == 0:
             return 0.0
 
-        return self.total_turns_started / self.games_completed
+        return (
+            self.total_turns_started
+            / self.games_completed
+        )
 
     @property
     def average_kinnan_activations(self) -> float:
@@ -118,13 +134,15 @@ class SimulationSummary:
         wins = sum(
             1
             for result in results
-            if result.game_over and result.winner is not None
+            if result.game_over
+            and result.winner is not None
         )
 
         winning_turns = [
             result.turns_started
             for result in results
-            if result.game_over and result.winner is not None
+            if result.game_over
+            and result.winner is not None
         ]
 
         games_completed = len(results)
@@ -152,7 +170,48 @@ class SimulationSummary:
                 if winning_turns
                 else None
             ),
+            kinnan_chain=KinnanChainSummary.from_games(
+                result.kinnan_chain
+                for result in results
+            ),
         )
+
+    def _validate_kinnan_chain(self) -> None:
+        """
+        Validate the relationship between the simulation and chain summary.
+
+        An empty KinnanChainSummary remains accepted for backward-compatible
+        direct construction of SimulationSummary. Aggregated summaries must
+        otherwise contain one chain entry per completed game.
+        """
+        chain_games = self.kinnan_chain.games
+
+        if chain_games not in (
+            0,
+            self.games_completed,
+        ):
+            raise ValueError(
+                "kinnan_chain.games must be zero or equal "
+                "games_completed."
+            )
+
+        if (
+            chain_games == 0
+            and self.kinnan_chain.games_with_activation != 0
+        ):
+            raise ValueError(
+                "Empty kinnan_chain must not contain "
+                "activation games."
+            )
+
+        if (
+            chain_games == 0
+            and self.kinnan_chain.games_with_chain != 0
+        ):
+            raise ValueError(
+                "Empty kinnan_chain must not contain "
+                "chain games."
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,12 +228,18 @@ class ExperimentResult:
     summary: SimulationSummary
 
     def __post_init__(self) -> None:
-        if len(self.game_results) != self.summary.games_completed:
+        if (
+            len(self.game_results)
+            != self.summary.games_completed
+        ):
             raise ValueError(
                 "game_results count must equal games_completed."
             )
 
-        if self.config.games != self.summary.games_requested:
+        if (
+            self.config.games
+            != self.summary.games_requested
+        ):
             raise ValueError(
                 "config.games must equal games_requested."
             )
