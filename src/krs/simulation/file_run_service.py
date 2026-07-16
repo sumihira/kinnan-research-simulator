@@ -17,6 +17,10 @@ from krs.report.deck_implementation_markdown import (
     DeckImplementationMarkdownReporter,
 )
 from krs.simulation.experiment import ExperimentResult
+from krs.simulation.preflight import (
+    SimulationPreflightResult,
+    SimulationPreflightValidator,
+)
 from krs.simulation.simulation_config import SimulationConfig
 from krs.simulation.simulation_factory import SimulationFactory
 
@@ -24,9 +28,9 @@ from krs.simulation.simulation_factory import SimulationFactory
 @dataclass(frozen=True, slots=True)
 class SimulationConfigOverrides:
     """
-    Optional command-line overrides for one simulation run.
+    Optional runtime overrides for one simulation run.
 
-    None means that the corresponding value loaded from YAML is retained.
+    None means that the value loaded from YAML is retained.
     """
 
     games: int | None = None
@@ -73,7 +77,7 @@ class SimulationConfigOverrides:
         self,
         config: SimulationConfig,
     ) -> SimulationConfig:
-        """Return a SimulationConfig with requested values replaced."""
+        """Return a config with the requested values replaced."""
         if not self.has_overrides:
             return config
 
@@ -100,20 +104,23 @@ class SimulationConfigOverrides:
 @dataclass(frozen=True, slots=True)
 class FileSimulationRunResult:
     """
-    Stores the result of one file-based Monte Carlo simulation.
-
-    The loaded configuration and deck are retained together with the
-    implementation audit, experiment result, and generated report paths.
+    Result of one file-based Monte Carlo simulation.
     """
 
     config: SimulationConfig
     deck: Deck
     audit: DeckImplementationAudit
+    preflight: SimulationPreflightResult
     experiment: ExperimentResult
     report_paths: ExperimentReportBundlePaths
     audit_markdown_path: Path
 
     def __post_init__(self) -> None:
+        if not self.preflight.ready:
+            raise ValueError(
+                "FileSimulationRunResult requires a ready preflight."
+            )
+
         if (
             self.config.games
             != self.experiment.summary.games_requested
@@ -125,6 +132,11 @@ class FileSimulationRunResult:
         if self.deck.name != self.audit.deck_name:
             raise ValueError(
                 "deck.name must equal audit.deck_name."
+            )
+
+        if self.deck.name != self.preflight.deck_name:
+            raise ValueError(
+                "deck.name must equal preflight.deck_name."
             )
 
         if (
@@ -150,9 +162,9 @@ class FileSimulationRunService:
     """
     Runs a complete simulation from project data files.
 
-    The service is an orchestration layer only. Deck loading, simulation,
-    statistics, and report serialization remain delegated to existing
-    components.
+    Loading, auditing, preflight validation, Monte Carlo execution, and
+    report generation are coordinated here while their implementation
+    remains delegated to dedicated components.
     """
 
     simulation_factory: SimulationFactory = field(
@@ -163,6 +175,9 @@ class FileSimulationRunService:
     )
     audit_reporter: DeckImplementationMarkdownReporter = field(
         default_factory=DeckImplementationMarkdownReporter,
+    )
+    preflight_validator: SimulationPreflightValidator = field(
+        default_factory=SimulationPreflightValidator,
     )
     audit_filename: str = "deck_implementation_audit.md"
 
@@ -197,14 +212,10 @@ class FileSimulationRunService:
         config_overrides: SimulationConfigOverrides | None = None,
     ) -> FileSimulationRunResult:
         """
-        Load, audit, simulate, and report one deck.
+        Load, validate, simulate, and report one deck.
 
-        Card configurations may be incomplete. Missing configurations are
-        reported by the audit and cards without executable configuration
-        remain available as Oracle-data-only cards.
-
-        Optional runtime overrides are applied after loading the YAML
-        configuration and before constructing the simulator.
+        Blocking preflight issues prevent Monte Carlo execution.
+        Non-blocking warnings are retained in the returned result.
         """
         output_path = Path(output_directory)
         overrides = (
@@ -226,18 +237,27 @@ class FileSimulationRunService:
             config
         )
 
+        audit = DeckImplementationAuditor(
+            CardConfigLoader(
+                Path(card_config_directory)
+            )
+        ).audit(deck)
+
+        preflight = self.preflight_validator.validate(
+            deck=deck,
+            audit=audit,
+        )
+
+        self._raise_for_blocking_preflight(
+            preflight
+        )
+
         simulator = (
             self.simulation_factory
             .create_monte_carlo_simulator(
                 effective_config
             )
         )
-
-        audit = DeckImplementationAuditor(
-            CardConfigLoader(
-                Path(card_config_directory)
-            )
-        ).audit(deck)
 
         experiment = simulator.run(
             deck,
@@ -263,7 +283,28 @@ class FileSimulationRunService:
             config=effective_config,
             deck=deck,
             audit=audit,
+            preflight=preflight,
             experiment=experiment,
             report_paths=report_paths,
             audit_markdown_path=audit_markdown_path,
+        )
+
+    @staticmethod
+    def _raise_for_blocking_preflight(
+        preflight: SimulationPreflightResult,
+    ) -> None:
+        """Raise one readable error for blocking preflight issues."""
+        if preflight.ready:
+            return
+
+        messages = "; ".join(
+            (
+                f"{issue.code}: {issue.message}"
+            )
+            for issue in preflight.blocking_issues
+        )
+
+        raise ValueError(
+            "Simulation preflight blocked execution: "
+            f"{messages}"
         )

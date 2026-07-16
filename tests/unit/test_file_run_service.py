@@ -35,6 +35,15 @@ from krs.simulation.file_run_service import (
     FileSimulationRunService,
     SimulationConfigOverrides,
 )
+from krs.simulation.file_run_service import (
+    FileSimulationRunResult,
+    FileSimulationRunService,
+    SimulationConfigOverrides,
+)
+from krs.simulation.preflight import (
+    SimulationPreflightResult,
+    SimulationPreflightValidator,
+)
 
 def create_card(
     *,
@@ -118,6 +127,23 @@ def create_audit() -> DeckImplementationAudit:
             ),
         ),
     )
+def create_ready_preflight(
+    *,
+    deck_name: str = "Kinnan",
+) -> SimulationPreflightResult:
+    return SimulationPreflightResult(
+        deck_name=deck_name,
+        total_cards=100,
+        main_deck_cards=99,
+        unique_cards=2,
+        configured_unique_cards=1,
+        oracle_only_unique_cards=1,
+        land_cards=1,
+        mana_source_cards=2,
+        blue_source_cards=1,
+        green_source_cards=1,
+        issues=(),
+    )
 
 
 def create_report_paths(
@@ -200,10 +226,22 @@ def test_run_loads_simulates_and_writes_reports(
         lambda loader: auditor,
     )
 
+    expected_preflight = create_ready_preflight(
+        deck_name=deck.name,
+    )
+
+    preflight_validator = Mock(
+        spec=SimulationPreflightValidator,
+    )
+    preflight_validator.validate.return_value = (
+        expected_preflight
+    )
+
     service = FileSimulationRunService(
         simulation_factory=simulation_factory,
         report_writer=report_writer,
         audit_reporter=audit_reporter,
+        preflight_validator=preflight_validator,
     )
 
     result = service.run(
@@ -220,6 +258,7 @@ def test_run_loads_simulates_and_writes_reports(
         config=config,
         deck=deck,
         audit=expected_audit,
+        preflight=expected_preflight,
         experiment=experiment,
         report_paths=report_paths,
         audit_markdown_path=audit_markdown_path,
@@ -232,21 +271,35 @@ def test_run_loads_simulates_and_writes_reports(
         card_config_directory=tmp_path / "card_configs",
         deck_name=None,
     )
+
+    (
+        preflight_validator
+        .validate
+        .assert_called_once_with(
+            deck=deck,
+            audit=expected_audit,
+        )
+    )
+
     (
         simulation_factory
         .create_monte_carlo_simulator
         .assert_called_once_with(config)
     )
+
     simulator.run.assert_called_once_with(
         deck,
         player_id=7,
         player_name="Kinnan Player",
     )
+
     auditor.audit.assert_called_once_with(deck)
+
     report_writer.write.assert_called_once_with(
         experiment,
         output_directory,
     )
+
     audit_reporter.write.assert_called_once_with(
         expected_audit,
         audit_markdown_path,
@@ -293,8 +346,10 @@ def test_run_forwards_deck_name(
         tmp_path / "deck_implementation_audit.md"
     )
 
+    expected_audit = create_audit()
+
     auditor = Mock()
-    auditor.audit.return_value = create_audit()
+    auditor.audit.return_value = expected_audit
 
     monkeypatch.setattr(
         (
@@ -304,10 +359,22 @@ def test_run_forwards_deck_name(
         lambda loader: auditor,
     )
 
+    expected_preflight = create_ready_preflight(
+        deck_name=deck.name,
+    )
+
+    preflight_validator = Mock(
+        spec=SimulationPreflightValidator,
+    )
+    preflight_validator.validate.return_value = (
+        expected_preflight
+    )
+
     result = FileSimulationRunService(
         simulation_factory=simulation_factory,
         report_writer=report_writer,
         audit_reporter=audit_reporter,
+        preflight_validator=preflight_validator,
     ).run(
         simulation_config_path=tmp_path / "simulation.yaml",
         deck_path=tmp_path / "kinnan.csv",
@@ -326,6 +393,15 @@ def test_run_forwards_deck_name(
     )
 
     (
+        preflight_validator
+        .validate
+        .assert_called_once_with(
+            deck=deck,
+            audit=expected_audit,
+        )
+    )
+
+    (
         simulation_factory
         .create_monte_carlo_simulator
         .assert_called_once_with(config)
@@ -339,6 +415,8 @@ def test_run_forwards_deck_name(
 
     assert result.config is config
     assert result.deck is deck
+    assert result.audit is expected_audit
+    assert result.preflight is expected_preflight
     assert result.experiment is experiment
 
 
