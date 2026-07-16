@@ -37,13 +37,15 @@ class GoldfishRunner:
     The runner coordinates GameEngine operations. It does not directly
     execute Actions or modify player zones.
 
-    Kinnan activations are limited per turn so an incorrectly configured
-    state or mocked engine cannot cause an infinite loop.
+    Automatic mana-permanent casts and Kinnan activations are limited per
+    turn so an incorrectly configured state or mocked engine cannot cause
+    an infinite loop.
     """
 
     game_engine: GameEngine
     max_turns: int = 10
     max_kinnan_activations_per_turn: int = 100
+    max_mana_permanent_casts_per_turn: int = 100
 
     def __post_init__(self) -> None:
         if self.max_turns < 1:
@@ -54,6 +56,12 @@ class GoldfishRunner:
         if self.max_kinnan_activations_per_turn < 1:
             raise ValueError(
                 "max_kinnan_activations_per_turn "
+                "must be at least 1."
+            )
+
+        if self.max_mana_permanent_casts_per_turn < 1:
+            raise ValueError(
+                "max_mana_permanent_casts_per_turn "
                 "must be at least 1."
             )
 
@@ -165,8 +173,9 @@ class GoldfishRunner:
 
         The active player:
         1. attempts to play one land;
-        2. attempts to cast Kinnan from the command zone;
-        3. activates Kinnan while activation remains available.
+        2. casts supported mana permanents while possible;
+        3. attempts to cast Kinnan from the command zone;
+        4. activates Kinnan while activation remains available.
 
         Returns the number of Kinnan activations executed during this
         main phase.
@@ -182,6 +191,26 @@ class GoldfishRunner:
             state,
             player_id=player.player_id,
         )
+
+        mana_permanent_cast_count = 0
+
+        while (
+            not state.game_over
+            and mana_permanent_cast_count
+            < self.max_mana_permanent_casts_per_turn
+        ):
+            executed = (
+                self.game_engine
+                .execute_mana_permanent_cast_if_available(
+                    state,
+                    player_id=player.player_id,
+                )
+            )
+
+            if not executed:
+                break
+
+            mana_permanent_cast_count += 1
 
         if not state.game_over:
             self.game_engine.execute_kinnan_cast_if_available(

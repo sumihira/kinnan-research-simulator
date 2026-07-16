@@ -24,6 +24,10 @@ from krs.ai.kinnan_activation_plan_factory import (
     KinnanActivationPlan,
     KinnanActivationPlanFactory,
 )
+from krs.ai.mana_permanent_cast_plan_factory import (
+    ManaPermanentCastPlan,
+    ManaPermanentCastPlanFactory,
+)
 
 
 class GameEngine:
@@ -48,6 +52,9 @@ class GameEngine:
         kinnan_activation_plan_factory: (
             KinnanActivationPlanFactory | None
         ) = None,
+        mana_permanent_cast_plan_factory: (
+            ManaPermanentCastPlanFactory | None
+        ) = None,
     ) -> None:
         self._action_executor = (
             action_executor
@@ -68,6 +75,10 @@ class GameEngine:
         self._kinnan_activation_plan_factory = (
             kinnan_activation_plan_factory
             or KinnanActivationPlanFactory()
+        )
+        self._mana_permanent_cast_plan_factory = (
+            mana_permanent_cast_plan_factory
+            or ManaPermanentCastPlanFactory()
         )
 
     def start_game(
@@ -362,6 +373,66 @@ class GameEngine:
 
         return True
 
+    def create_mana_permanent_cast_plan(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> ManaPermanentCastPlan | None:
+        """
+        Create a plan for casting one mana-producing permanent.
+
+        None is returned outside the main phase or when no supported,
+        payable mana permanent is available in the player's hand.
+
+        This method does not mutate GameState.
+        """
+        self._validate_running_game(state)
+
+        if state.phase is not Phase.MAIN:
+            return None
+
+        return self._mana_permanent_cast_plan_factory.create(
+            state=state,
+            player_id=player_id,
+        )
+
+    def execute_mana_permanent_cast_if_available(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> bool:
+        """
+        Cast one mana-producing permanent when a complete plan exists.
+
+        Required mana-source tap Actions are executed first. The spell is
+        then cast through ActionExecutor.
+
+        Returns True when one permanent was cast. Returns False without
+        modifying GameState when no complete plan is available.
+        """
+        plan = self.create_mana_permanent_cast_plan(
+            state,
+            player_id=player_id,
+        )
+
+        if plan is None:
+            return False
+
+        for mana_action in plan.mana_actions:
+            self._action_executor.execute(
+                state,
+                mana_action,
+            )
+
+        self._action_executor.execute(
+            state,
+            plan.cast_action,
+        )
+
+        return True
+
     def create_kinnan_cast_plan(
         self,
         state: GameState,
@@ -597,6 +668,9 @@ class GameEngine:
         kinnan_activation_plan_factory: (
             KinnanActivationPlanFactory | None
         ) = None,
+        mana_permanent_cast_plan_factory: (
+            ManaPermanentCastPlanFactory | None
+        ) = None,
     ) -> GameEngine:
         """Create a GameEngine configured with an AI strategy."""
         factory = (
@@ -622,5 +696,8 @@ class GameEngine:
             ),
             kinnan_activation_plan_factory=(
                 kinnan_activation_plan_factory
+            ),
+            mana_permanent_cast_plan_factory=(
+                mana_permanent_cast_plan_factory
             ),
         )
