@@ -374,3 +374,143 @@ replay:
         match="replay.enabled must be a boolean",
     ):
         SimulationConfigLoader().load(path)
+
+def test_loader_reads_parallel_workers_alias(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "simulation.yaml"
+
+    config_path.write_text(
+        """
+strategy: balanced
+games: 100
+max_turns: 6
+parallel_workers: 4
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = SimulationConfigLoader().load(
+        config_path
+    )
+
+    assert config.workers == 4
+
+
+def test_workers_takes_priority_over_parallel_workers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "simulation.yaml"
+
+    config_path.write_text(
+        """
+strategy: balanced
+games: 100
+max_turns: 6
+workers: 2
+parallel_workers: 4
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = SimulationConfigLoader().load(
+        config_path
+    )
+
+    assert config.workers == 2
+
+
+def test_loader_reads_top_level_save_replays_alias(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "simulation.yaml"
+
+    config_path.write_text(
+        """
+strategy: balanced
+games: 100
+max_turns: 6
+save_replays: true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = SimulationConfigLoader().load(
+        config_path
+    )
+
+    assert config.save_replays is True
+
+
+def test_replay_enabled_takes_priority_over_save_replays(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "simulation.yaml"
+
+    config_path.write_text(
+        """
+strategy: balanced
+games: 100
+max_turns: 6
+save_replays: true
+replay:
+  enabled: false
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = SimulationConfigLoader().load(
+        config_path
+    )
+
+    assert config.save_replays is False
+
+
+def test_default_project_config_uses_parallel_workers() -> None:
+    config = SimulationConfigLoader().load(
+        Path("config/simulation/default.yaml")
+    )
+
+    assert config.workers == 1
+
+
+def test_parallel_workers_rejects_non_integer(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "simulation.yaml"
+
+    config_path.write_text(
+        """
+parallel_workers: four
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="workers must be an integer",
+    ):
+        SimulationConfigLoader().load(
+            config_path
+        )
+
+
+def test_top_level_save_replays_rejects_non_boolean(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "simulation.yaml"
+
+    config_path.write_text(
+        """
+save_replays: enabled
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="save_replays must be a boolean",
+    ):
+        SimulationConfigLoader().load(
+            config_path
+        )

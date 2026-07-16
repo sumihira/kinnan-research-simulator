@@ -11,6 +11,14 @@ from krs.simulation.simulation_config import SimulationConfig
 class SimulationConfigLoader:
     """
     Loads SimulationConfig from a YAML file.
+
+    Both the canonical keys and the legacy project keys are supported:
+
+    - workers / parallel_workers
+    - replay.enabled / save_replays
+
+    Canonical nested or direct keys take priority when both forms are
+    present.
     """
 
     def load(
@@ -66,10 +74,8 @@ class SimulationConfigLoader:
         seed = raw_data.get(
             "seed",
         )
-        workers = raw_data.get(
-            "workers",
-            1,
-        )
+        workers = self._read_workers(raw_data)
+
         mulligan = raw_data.get(
             "mulligan",
             {},
@@ -120,12 +126,10 @@ class SimulationConfigLoader:
             ),
             field_name="mulligan.enabled",
         )
-        save_replays = self._read_boolean(
-            replay.get(
-                "enabled",
-                False,
-            ),
-            field_name="replay.enabled",
+
+        save_replays = self._read_save_replays(
+            raw_data=raw_data,
+            replay=replay,
         )
 
         return SimulationConfig(
@@ -136,6 +140,50 @@ class SimulationConfigLoader:
             mulligan_enabled=mulligan_enabled,
             save_replays=save_replays,
             workers=workers,
+        )
+
+    @staticmethod
+    def _read_workers(
+        raw_data: dict[str, Any],
+    ) -> Any:
+        """
+        Read worker count with backward-compatible key support.
+
+        The canonical workers key takes priority over parallel_workers.
+        """
+        if "workers" in raw_data:
+            return raw_data["workers"]
+
+        if "parallel_workers" in raw_data:
+            return raw_data["parallel_workers"]
+
+        return 1
+
+    def _read_save_replays(
+        self,
+        *,
+        raw_data: dict[str, Any],
+        replay: dict[str, Any],
+    ) -> bool:
+        """
+        Read replay output configuration.
+
+        replay.enabled takes priority over the legacy top-level
+        save_replays key.
+        """
+        if "enabled" in replay:
+            value = replay["enabled"]
+            field_name = "replay.enabled"
+        elif "save_replays" in raw_data:
+            value = raw_data["save_replays"]
+            field_name = "save_replays"
+        else:
+            value = False
+            field_name = "replay.enabled"
+
+        return self._read_boolean(
+            value,
+            field_name=field_name,
         )
 
     @staticmethod
