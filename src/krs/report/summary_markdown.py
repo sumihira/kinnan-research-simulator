@@ -147,9 +147,10 @@ class ExperimentSummaryMarkdownReporter:
         result: ExperimentResult,
     ) -> str:
         """
-        Render aggregate simulation results.
+        Render aggregate simulation and Kinnan-chain results.
         """
         summary = result.summary
+        chain = summary.kinnan_chain
 
         fastest_win_turn = (
             str(summary.fastest_win_turn)
@@ -201,6 +202,48 @@ class ExperimentSummaryMarkdownReporter:
             (
                 "Fastest win turn",
                 fastest_win_turn,
+            ),
+            (
+                "Kinnan chain games",
+                f"{chain.games:,}",
+            ),
+            (
+                "Kinnan activation games",
+                f"{chain.games_with_activation:,}",
+            ),
+            (
+                "Kinnan chain-established games",
+                f"{chain.games_with_chain:,}",
+            ),
+            (
+                "Overall Kinnan chain rate",
+                f"{chain.overall_chain_rate * 100.0:.3f}%",
+            ),
+            (
+                "Activation-game Kinnan chain rate",
+                (
+                    f"{chain.activation_game_chain_rate * 100.0:.3f}%"
+                ),
+            ),
+            (
+                "Total tracked Kinnan activations",
+                f"{chain.total_activations:,}",
+            ),
+            (
+                "Kinnan chain activations",
+                f"{chain.chain_activations:,}",
+            ),
+            (
+                "Activation-based Kinnan chain rate",
+                f"{chain.activation_chain_rate * 100.0:.3f}%",
+            ),
+            (
+                "Average maximum chain length",
+                f"{chain.average_longest_chain:.3f}",
+            ),
+            (
+                "Maximum chain length",
+                f"{chain.max_chain:,}",
             ),
         )
 
