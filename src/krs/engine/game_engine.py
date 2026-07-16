@@ -20,6 +20,10 @@ from krs.ai.kinnan_cast_plan_factory import (
     KinnanCastPlan,
     KinnanCastPlanFactory,
 )
+from krs.ai.kinnan_activation_plan_factory import (
+    KinnanActivationPlan,
+    KinnanActivationPlanFactory,
+)
 
 
 class GameEngine:
@@ -41,6 +45,9 @@ class GameEngine:
         kinnan_cast_plan_factory: (
             KinnanCastPlanFactory | None
         ) = None,
+        kinnan_activation_plan_factory: (
+            KinnanActivationPlanFactory | None
+        ) = None,
     ) -> None:
         self._action_executor = (
             action_executor
@@ -57,6 +64,10 @@ class GameEngine:
         self._kinnan_cast_plan_factory = (
             kinnan_cast_plan_factory
             or KinnanCastPlanFactory()
+        )
+        self._kinnan_activation_plan_factory = (
+            kinnan_activation_plan_factory
+            or KinnanActivationPlanFactory()
         )
 
     def start_game(
@@ -406,6 +417,28 @@ class GameEngine:
         )
 
         return True
+    
+    def create_kinnan_activation_plan(
+        self,
+        state: GameState,
+        *,
+        player_id: int,
+    ) -> KinnanActivationPlan | None:
+        """
+        Create a complete mana plan for one Kinnan activation.
+
+        The returned plan contains all mana-source tap Actions required
+        before ActivateKinnanAction can be executed.
+        """
+        self._validate_running_game(state)
+
+        if state.phase is not Phase.MAIN:
+            return None
+
+        return self._kinnan_activation_plan_factory.create(
+            state=state,
+            player_id=player_id,
+        )
 
     def create_kinnan_activation_action(
         self,
@@ -472,27 +505,61 @@ class GameEngine:
         player_id: int,
     ) -> bool:
         """
-        Create and execute one Kinnan activation when available.
+        Pay for and execute one Kinnan activation when possible.
 
-        Returns True when an activation Action was executed.
-        Returns False when the player has no activatable Kinnan.
+        Existing floating mana is checked first through
+        find_activatable_kinnan(). This preserves the original execution
+        path and compatibility with callers that provide a ManaPool-like
+        object implementing can_pay() only.
+
+        When floating mana alone is insufficient, the engine:
+        1. creates a complete mana-source plan;
+        2. executes each TapPermanentAction;
+        3. creates ActivateKinnanAction through KinnanActionFactory;
+        4. executes the activation through ActionExecutor.
+
+        False is returned without modifying GameState when neither path can
+        pay the activation cost.
         """
         source = self.find_activatable_kinnan(
             state,
             player_id=player_id,
         )
 
-        if source is None:
-            return False
-
-        action = (
-            self.create_kinnan_activation_action(
+        if source is not None:
+            action = self.create_kinnan_activation_action(
                 state,
                 player_id=player_id,
-                source_permanent_id=(
-                    source.permanent_id
-                ),
+                source_permanent_id=source.permanent_id,
             )
+
+            self._action_executor.execute(
+                state,
+                action,
+            )
+
+            return True
+
+        plan = self.create_kinnan_activation_plan(
+            state,
+            player_id=player_id,
+        )
+
+        if plan is None:
+            return False
+
+        for mana_action in plan.mana_actions:
+            self._action_executor.execute(
+                state,
+                mana_action,
+            )
+
+        action = self.create_kinnan_activation_action(
+            state,
+            player_id=player_id,
+            source_permanent_id=(
+                plan.source_permanent_id
+            ),
         )
 
         self._action_executor.execute(
@@ -527,6 +594,9 @@ class GameEngine:
         kinnan_cast_plan_factory: (
             KinnanCastPlanFactory | None
         ) = None,
+        kinnan_activation_plan_factory: (
+            KinnanActivationPlanFactory | None
+        ) = None,
     ) -> GameEngine:
         """Create a GameEngine configured with an AI strategy."""
         factory = (
@@ -549,5 +619,8 @@ class GameEngine:
             land_action_factory=land_action_factory,
             kinnan_cast_plan_factory=(
                 kinnan_cast_plan_factory
+            ),
+            kinnan_activation_plan_factory=(
+                kinnan_activation_plan_factory
             ),
         )
