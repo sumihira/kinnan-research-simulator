@@ -12,6 +12,10 @@ from krs.ai.kinnan_cast_plan_factory import (
 from krs.ai.kinnan_hit_selector import KinnanHitSelector
 from krs.ai.land_action_factory import LandActionFactory
 from krs.ai.strategy_factory import StrategyFactory
+from krs.ai.mana_permanent_cast_plan_factory import (
+    ManaPermanentCastPlan,
+    ManaPermanentCastPlanFactory,
+)
 
 __all__ = [
     "CardEvaluator",
@@ -24,4 +28,6 @@ __all__ = [
     "KinnanHitSelector",
     "LandActionFactory",
     "StrategyFactory",
+    "ManaPermanentCastPlan",
+    "ManaPermanentCastPlanFactory",
 ]
