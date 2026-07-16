@@ -104,7 +104,8 @@ class KinnanResolutionEngine:
                 permanent=selected_permanent,
                 controller=player,
                 chosen_values=self._chosen_values(
-                    action
+                    action=action,
+                    selected_card=selected_card,
                 ),
             )
 
@@ -173,22 +174,85 @@ class KinnanResolutionEngine:
             entered_turn=state.turn_number,
         )
 
-    @staticmethod
+    @classmethod
     def _chosen_values(
+        cls,
+        *,
         action: ActivateKinnanAction,
+        selected_card: Card | None,
     ) -> Mapping[str, str]:
-        chosen_values = getattr(
+        """
+        Resolve choices required when a Kinnan hit enters the battlefield.
+
+        Explicit choices carried by the Action take priority. When the
+        Action provides no value, deterministic Goldfish choices are added
+        for cards that require an enters-the-battlefield choice.
+
+        Roaming Throne chooses Druid so its chosen creature type matches
+        Kinnan, Bonder Prodigy.
+        """
+        raw_chosen_values = getattr(
             action,
             "chosen_values",
             {},
         )
 
-        if not isinstance(chosen_values, Mapping):
+        if not isinstance(raw_chosen_values, Mapping):
             raise ValueError(
                 "Kinnan chosen_values must be a mapping."
             )
 
+        chosen_values = cls._normalize_chosen_values(
+            raw_chosen_values
+        )
+
+        if (
+            selected_card is not None
+            and selected_card.name == "Roaming Throne"
+        ):
+            chosen_values.setdefault(
+                "creature_type",
+                "Druid",
+            )
+
         return chosen_values
+    
+    @staticmethod
+    def _normalize_chosen_values(
+        chosen_values: Mapping[object, object],
+    ) -> dict[str, str]:
+        """
+        Validate and normalize choices before battlefield entry.
+
+        Keys and values must be non-empty strings. Whitespace is stripped
+        so the values match CastSpellAction's normalization behavior.
+        """
+        normalized_values: dict[str, str] = {}
+
+        for raw_key, raw_value in chosen_values.items():
+            if (
+                not isinstance(raw_key, str)
+                or not raw_key.strip()
+            ):
+                raise ValueError(
+                    "Kinnan chosen value key must be "
+                    "a non-empty string."
+                )
+
+            if (
+                not isinstance(raw_value, str)
+                or not raw_value.strip()
+            ):
+                raise ValueError(
+                    "Kinnan chosen value must be "
+                    "a non-empty string."
+                )
+
+            normalized_values[raw_key.strip()] = (
+                raw_value.strip()
+            )
+
+        return normalized_values
 
     @staticmethod
     def _create_resolution_rng(

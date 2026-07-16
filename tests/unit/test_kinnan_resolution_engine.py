@@ -17,6 +17,9 @@ from unittest.mock import Mock
 from krs.engine.battlefield_entry_engine import (
     BattlefieldEntryEngine,
 )
+from types import MappingProxyType
+
+from krs.abilities.replacement import ReplacementAbility
 
 
 def create_card(
@@ -300,3 +303,113 @@ def test_kinnan_entry_validation_failure_preserves_state() -> None:
     assert state.next_permanent_id == original_next_permanent_id
     assert state.mana_spent == 0
     assert state.action_count == 0
+
+def test_kinnan_hit_roaming_throne_chooses_druid() -> None:
+    state = create_running_state()
+    player = state.players[0]
+
+    roaming_throne = Card(
+        id="roaming-throne-id",
+        name="Roaming Throne",
+        mana_cost="{4}",
+        mana_value=4,
+        oracle_text=(
+            "Ward {2}\n"
+            "As Roaming Throne enters, choose a creature type."
+        ),
+        type_line="Artifact Creature — Golem",
+        power="4",
+        toughness="4",
+        replacement_abilities=(
+            ReplacementAbility(
+                ability_type="choose_creature_type",
+                event="enters_battlefield",
+                parameters={
+                    "choice_type": "creature_type",
+                },
+            ),
+        ),
+    )
+
+    player.library.cards.append(
+        roaming_throne
+    )
+
+    action = ActivateKinnanAction(
+        player_id=player.player_id,
+        turn_number=state.turn_number,
+        source_permanent_id=1,
+        selected_card_id=roaming_throne.id,
+    )
+
+    KinnanResolutionEngine().execute(
+        state=state,
+        action=action,
+    )
+
+    throne = next(
+        permanent
+        for permanent in player.battlefield
+        if permanent.effective_card.id
+        == roaming_throne.id
+    )
+
+    assert throne.chosen_values == {
+        "creature_type": "Druid",
+    }
+
+def test_kinnan_hit_regular_card_has_no_chosen_values() -> None:
+    action = ActivateKinnanAction(
+        player_id=0,
+        turn_number=1,
+        source_permanent_id=1,
+    )
+
+    chosen_values = (
+        KinnanResolutionEngine._chosen_values(
+            action=action,
+            selected_card=Card(
+                id="regular-card-id",
+                name="Regular Creature",
+                mana_cost="{3}",
+                mana_value=3,
+                oracle_text="",
+                type_line="Creature — Beast",
+                power="3",
+                toughness="3",
+            ),
+        )
+    )
+
+    assert chosen_values == {}
+
+def test_kinnan_chosen_values_are_normalized() -> None:
+    normalized = (
+        KinnanResolutionEngine
+        ._normalize_chosen_values(
+            {
+                " creature_type ": " Druid ",
+            }
+        )
+    )
+
+    assert normalized == {
+        "creature_type": "Druid",
+    }
+
+def test_kinnan_chosen_values_reject_empty_value() -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Kinnan chosen value must be "
+            "a non-empty string"
+        ),
+    ):
+        (
+            KinnanResolutionEngine
+            ._normalize_chosen_values(
+                {
+                    "creature_type": " ",
+                }
+            )
+        )
