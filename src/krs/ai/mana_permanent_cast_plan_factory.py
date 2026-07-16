@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from krs.actions.cast_spell import CastSpellAction
@@ -12,6 +13,8 @@ from krs.game.permanent import Permanent
 from krs.game.player import Player
 from krs.mana.mana import Mana
 from krs.mana.mana_cost import ManaCost
+from types import MappingProxyType
+from collections.abc import Mapping
 
 
 _MANA_SYMBOL_PATTERN = re.compile(r"\{([^{}]+)\}")
@@ -203,6 +206,9 @@ class ManaPermanentCastPlanFactory:
                 turn_number=state.turn_number,
                 card=selected.card,
                 cost=selected.cost,
+                chosen_values=self._chosen_values(
+                    selected.card,
+                ),
             ),
         )
 
@@ -437,6 +443,25 @@ class ManaPermanentCastPlanFactory:
         )
 
     @staticmethod
+    def _chosen_values(
+        card: Card,
+    ) -> Mapping[str, str]:
+        """
+        Return deterministic choices required when casting a card.
+
+        Roaming Throne chooses Druid so it can interact with Kinnan,
+        Bonder Prodigy's Druid creature type.
+
+        Cards without required choices receive an empty mapping.
+        """
+        if card.name == "Roaming Throne":
+            return {
+                "creature_type": "Druid",
+            }
+
+        return {}
+
+    @staticmethod
     def _parse_mana_cost(
         mana_cost: str,
     ) -> ManaCost | None:
@@ -589,3 +614,16 @@ class ManaPermanentCastPlanFactory:
         raise ValueError(
             f"Player not found: {player_id}"
         )
+    
+    @staticmethod
+    def _chosen_values(
+        card: Card,
+    ) -> Mapping[str, str]:
+        if card.name == "Roaming Throne":
+            return MappingProxyType(
+                {
+                    "creature_type": "Druid",
+                }
+            )
+
+        return MappingProxyType({})

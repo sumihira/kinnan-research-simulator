@@ -514,3 +514,88 @@ def test_color_selection_ability_uses_maximum_single_output() -> None:
 
     assert plan is not None
     assert plan.cast_action.card is lotus
+
+def roaming_throne() -> Card:
+    return create_card(
+        card_id="roaming-throne-id",
+        name="Roaming Throne",
+        mana_cost="{4}",
+        type_line="Artifact Creature — Golem",
+        mana_abilities=(
+            mana_ability(
+                {
+                    Mana.COLORLESS: 1,
+                }
+            ),
+        ),
+    )
+
+def test_roaming_throne_cast_plan_chooses_druid() -> None:
+    card = roaming_throne()
+
+    state = create_state(
+        hand=(card,),
+    )
+
+    player = state.players[0]
+    player.mana_pool.add(
+        Mana.COLORLESS,
+        4,
+    )
+
+    plan = ManaPermanentCastPlanFactory().create(
+        state=state,
+        player_id=0,
+    )
+
+    assert plan is not None
+    assert plan.cast_action.card is card
+    assert plan.cast_action.chosen_values == {
+        "creature_type": "Druid",
+    }
+
+def test_regular_mana_permanent_has_no_chosen_values() -> None:
+    card = sol_ring()
+
+    state = create_state(
+        hand=(card,),
+    )
+
+    state.players[0].mana_pool.add(
+        Mana.COLORLESS,
+    )
+
+    plan = ManaPermanentCastPlanFactory().create(
+        state=state,
+        player_id=0,
+    )
+
+    assert plan is not None
+    assert plan.cast_action.card is card
+    assert plan.cast_action.chosen_values == {}
+
+def test_cast_plan_chosen_values_are_immutable() -> None:
+    card = roaming_throne()
+
+    state = create_state(
+        hand=(card,),
+    )
+
+    state.players[0].mana_pool.add(
+        Mana.COLORLESS,
+        4,
+    )
+
+    plan = ManaPermanentCastPlanFactory().create(
+        state=state,
+        player_id=0,
+    )
+
+    assert plan is not None
+
+    with pytest.raises(
+        TypeError,
+    ):
+        plan.cast_action.chosen_values[
+            "creature_type"
+        ] = "Wizard"  # type: ignore[index]
