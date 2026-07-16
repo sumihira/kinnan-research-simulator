@@ -1,0 +1,11 @@
+card_name: Gilded Lotus
+
+abilities:
+  mana:
+    - produces:
+        WHITE: 3
+        BLUE: 3
+        BLACK: 3
+        RED: 3
+        GREEN: 3
+      requires_tap: true

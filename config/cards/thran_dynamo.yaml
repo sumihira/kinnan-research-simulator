@@ -1,0 +1,7 @@
+card_name: Thran Dynamo
+
+abilities:
+  mana:
+    - produces:
+        COLORLESS: 3
+      requires_tap: true

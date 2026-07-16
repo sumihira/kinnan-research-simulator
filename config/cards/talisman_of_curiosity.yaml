@@ -1,0 +1,8 @@
+card_name: Talisman of Curiosity
+
+abilities:
+  mana:
+    - produces:
+        BLUE: 1
+        GREEN: 1
+      requires_tap: true

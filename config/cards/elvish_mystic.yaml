@@ -1,0 +1,7 @@
+card_name: Elvish Mystic
+
+abilities:
+  mana:
+    - produces:
+        GREEN: 1
+      requires_tap: true

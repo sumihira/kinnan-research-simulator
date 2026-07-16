@@ -1,0 +1,7 @@
+card_name: Fyndhorn Elves
+
+abilities:
+  mana:
+    - produces:
+        GREEN: 1
+      requires_tap: true
