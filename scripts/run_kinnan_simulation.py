@@ -9,6 +9,15 @@ from krs.simulation.file_run_service import (
     FileSimulationRunService,
     SimulationConfigOverrides,
 )
+from krs.cards.card_config_loader import CardConfigLoader
+from krs.decks.implementation_audit import (
+    DeckImplementationAuditor,
+)
+from krs.simulation.preflight import (
+    SimulationPreflightResult,
+    SimulationPreflightValidator,
+)
+from krs.simulation.simulation_factory import SimulationFactory
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -117,6 +126,14 @@ def create_parser() -> argparse.ArgumentParser:
             "Override the worker count from the YAML configuration."
         ),
     )
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help=(
+            "Load and validate the deck without running "
+            "the Monte Carlo simulation."
+        ),
+    )
 
     return parser
 
@@ -212,6 +229,46 @@ def print_result(
 def main() -> int:
     parser = create_parser()
     arguments = parser.parse_args()
+    if arguments.preflight_only:
+        try:
+            factory = SimulationFactory()
+
+            _, deck = factory.load_config_and_deck(
+                simulation_config_path=(
+                    arguments.simulation_config
+                ),
+                deck_path=arguments.deck,
+                card_cache_path=arguments.card_cache,
+                card_config_directory=(
+                    arguments.card_config_directory
+                ),
+                deck_name=arguments.deck_name,
+            )
+
+            audit = DeckImplementationAuditor(
+                CardConfigLoader(
+                    arguments.card_config_directory
+                )
+            ).audit(deck)
+
+            preflight = SimulationPreflightValidator().validate(
+                deck=deck,
+                audit=audit,
+            )
+        except (
+            FileNotFoundError,
+            ValueError,
+            IndexError,
+        ) as error:
+            print(
+                f"Preflight failed: {error}",
+                file=sys.stderr,
+            )
+            return 1
+
+        print_preflight(preflight)
+
+        return 0 if preflight.ready else 1
 
     try:
         overrides = create_config_overrides(
@@ -250,3 +307,48 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+def print_preflight(
+    result: SimulationPreflightResult,
+) -> None:
+    """Print one preflight result to the console."""
+    status = (
+        "READY"
+        if result.ready
+        else "BLOCKED"
+    )
+
+    print()
+    print("Kinnan Simulation Preflight")
+    print("=" * 64)
+    print(f"Status                       : {status}")
+    print(f"Deck                         : {result.deck_name}")
+    print(f"Total cards                  : {result.total_cards:,}")
+    print(f"Main-deck cards              : {result.main_deck_cards:,}")
+    print(f"Unique cards                 : {result.unique_cards:,}")
+    print(
+        "Configured unique cards      : "
+        f"{result.configured_unique_cards:,}"
+    )
+    print(
+        "Oracle-only unique cards     : "
+        f"{result.oracle_only_unique_cards:,}"
+    )
+    print(f"Land cards                   : {result.land_cards:,}")
+    print(f"Implemented mana sources     : {result.mana_source_cards:,}")
+    print(f"Blue mana sources            : {result.blue_source_cards:,}")
+    print(f"Green mana sources           : {result.green_source_cards:,}")
+
+    if result.issues:
+        print("-" * 64)
+
+    for issue in result.issues:
+        level = (
+            "ERROR"
+            if issue.blocking
+            else "WARNING"
+        )
+
+        print(
+            f"[{level}] {issue.code}: {issue.message}"
+        )
