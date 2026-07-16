@@ -386,3 +386,74 @@ def test_calculation_does_not_modify_experiment() -> None:
     assert result.summary is original_summary
     assert result.game_results is original_results
     assert result.config is original_config
+
+def test_zero_wins_in_ten_games_contains_observed_rate() -> None:
+    interval = WinRateConfidenceIntervalCalculator().calculate(
+        wins=0,
+        games=10,
+    )
+
+    assert interval.observed_rate == 0.0
+    assert interval.lower_bound == 0.0
+    assert interval.upper_bound > 0.0
+    assert (
+        interval.lower_bound
+        <= interval.observed_rate
+        <= interval.upper_bound
+    )
+
+
+def test_ten_wins_in_ten_games_contains_observed_rate() -> None:
+    interval = WinRateConfidenceIntervalCalculator().calculate(
+        wins=10,
+        games=10,
+    )
+
+    assert interval.observed_rate == 1.0
+    assert interval.lower_bound < 1.0
+    assert interval.upper_bound == 1.0
+    assert (
+        interval.lower_bound
+        <= interval.observed_rate
+        <= interval.upper_bound
+    )
+
+@pytest.mark.parametrize(
+    "games",
+    (
+        1,
+        2,
+        3,
+        10,
+        100,
+    ),
+)
+def test_boundary_results_always_contain_observed_rate(
+    games: int,
+) -> None:
+    zero_win_interval = (
+        WinRateConfidenceIntervalCalculator().calculate(
+            wins=0,
+            games=games,
+        )
+    )
+    all_win_interval = (
+        WinRateConfidenceIntervalCalculator().calculate(
+            wins=games,
+            games=games,
+        )
+    )
+
+    assert zero_win_interval.lower_bound == 0.0
+    assert (
+        zero_win_interval.lower_bound
+        <= zero_win_interval.observed_rate
+        <= zero_win_interval.upper_bound
+    )
+
+    assert all_win_interval.upper_bound == 1.0
+    assert (
+        all_win_interval.lower_bound
+        <= all_win_interval.observed_rate
+        <= all_win_interval.upper_bound
+    )

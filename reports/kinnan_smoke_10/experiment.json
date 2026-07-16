@@ -1,0 +1,152 @@
+{
+  "config": {
+    "games": 10,
+    "max_turns": 6,
+    "mulligan_enabled": true,
+    "save_replays": false,
+    "seed": 12345,
+    "strategy_name": "balanced",
+    "workers": 1
+  },
+  "games": [
+    {
+      "game_id": 0,
+      "game_over": false,
+      "kinnan_activations": 2,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 1,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 2,
+      "game_over": false,
+      "kinnan_activations": 3,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 3,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 4,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 5,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 6,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 7,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 8,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    },
+    {
+      "game_id": 9,
+      "game_over": false,
+      "kinnan_activations": 0,
+      "reached_turn_limit": true,
+      "turns_started": 6,
+      "winner": null
+    }
+  ],
+  "kinnan_chain": {
+    "activation_chain_rate": 1.0,
+    "activation_game_chain_rate": 1.0,
+    "average_longest_chain": 0.5,
+    "chain_activations": 5,
+    "first_chain_turns": [
+      6,
+      5
+    ],
+    "games": 10,
+    "games_with_activation": 2,
+    "games_with_chain": 2,
+    "max_chain": 3,
+    "max_chain_distribution": [
+      {
+        "chain_length": 0,
+        "games": 8
+      },
+      {
+        "chain_length": 2,
+        "games": 1
+      },
+      {
+        "chain_length": 3,
+        "games": 1
+      }
+    ],
+    "overall_chain_rate": 0.2,
+    "total_activations": 5,
+    "turn_chain_statistics": [
+      {
+        "chain_rate_through_turn": 0.1,
+        "chains_started": 1,
+        "chains_started_rate": 0.1,
+        "chains_through_turn": 1,
+        "turn": 5
+      },
+      {
+        "chain_rate_through_turn": 0.2,
+        "chains_started": 1,
+        "chains_started_rate": 0.1,
+        "chains_through_turn": 2,
+        "turn": 6
+      }
+    ]
+  },
+  "summary": {
+    "average_kinnan_activations": 0.5,
+    "average_turns_started": 6.0,
+    "fastest_win_turn": null,
+    "games_completed": 10,
+    "games_requested": 10,
+    "non_wins": 10,
+    "total_kinnan_activations": 5,
+    "total_turns_started": 60,
+    "turn_limit_games": 10,
+    "win_rate": 0.0,
+    "wins": 0
+  }
+}

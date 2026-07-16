@@ -131,6 +131,11 @@ class WinRateConfidenceIntervalCalculator:
     ) -> WinRateConfidenceInterval:
         """
         Calculate a Wilson score interval from wins and completed games.
+
+        Floating-point rounding can place the calculated lower bound
+        slightly above an observed rate of 0.0, or the upper bound slightly
+        below an observed rate of 1.0. The final bounds are therefore
+        clamped so the interval always contains the observed rate.
         """
         self._validate_counts(
             wins=wins,
@@ -163,13 +168,22 @@ class WinRateConfidenceIntervalCalculator:
             )
         ) / denominator
 
+        calculated_lower_bound = center - spread
+        calculated_upper_bound = center + spread
+
         lower_bound = max(
             0.0,
-            center - spread,
+            min(
+                calculated_lower_bound,
+                observed_rate,
+            ),
         )
         upper_bound = min(
             1.0,
-            center + spread,
+            max(
+                calculated_upper_bound,
+                observed_rate,
+            ),
         )
 
         return WinRateConfidenceInterval(
