@@ -173,9 +173,15 @@ class GoldfishRunner:
 
         The active player:
         1. attempts to play one land;
-        2. casts supported mana permanents while possible;
-        3. attempts to cast Kinnan from the command zone;
-        4. activates Kinnan while activation remains available.
+        2. immediately casts Kinnan when already payable;
+        3. otherwise casts mana permanents one at a time, retrying Kinnan
+           after every successful cast;
+        4. stops developing mana permanents once Kinnan is cast;
+        5. activates Kinnan while activation remains available.
+
+        Prioritizing an immediately payable Kinnan prevents mana creatures
+        or mana rocks from consuming colored mana that is already sufficient
+        to cast the commander.
 
         Returns the number of Kinnan activations executed during this
         main phase.
@@ -192,14 +198,26 @@ class GoldfishRunner:
             player_id=player.player_id,
         )
 
+        if state.game_over:
+            return 0
+
+        kinnan_cast = (
+            self.game_engine
+            .execute_kinnan_cast_if_available(
+                state,
+                player_id=player.player_id,
+            )
+        )
+
         mana_permanent_cast_count = 0
 
         while (
             not state.game_over
+            and not kinnan_cast
             and mana_permanent_cast_count
             < self.max_mana_permanent_casts_per_turn
         ):
-            executed = (
+            mana_permanent_cast = (
                 self.game_engine
                 .execute_mana_permanent_cast_if_available(
                     state,
@@ -207,15 +225,20 @@ class GoldfishRunner:
                 )
             )
 
-            if not executed:
+            if not mana_permanent_cast:
                 break
 
             mana_permanent_cast_count += 1
 
-        if not state.game_over:
-            self.game_engine.execute_kinnan_cast_if_available(
-                state,
-                player_id=player.player_id,
+            if state.game_over:
+                break
+
+            kinnan_cast = (
+                self.game_engine
+                .execute_kinnan_cast_if_available(
+                    state,
+                    player_id=player.player_id,
+                )
             )
 
         activation_count = 0
