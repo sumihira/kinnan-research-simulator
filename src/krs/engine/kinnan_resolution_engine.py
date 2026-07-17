@@ -6,8 +6,10 @@ from collections.abc import Mapping
 from krs.actions.activate_kinnan import ActivateKinnanAction
 from krs.cards.card import Card
 from krs.commanders.kinnan import is_kinnan
+from krs.commanders.kinnan_activation_cost import (
+    kinnan_activation_cost,
+)
 from krs.commanders.kinnan_ability import (
-    KINNAN_ACTIVATION_COST,
     KINNAN_LOOK_COUNT,
     find_selected_hit,
 )
@@ -71,8 +73,12 @@ class KinnanResolutionEngine:
                 f"{source.effective_card.name}"
             )
 
+        activation_cost = kinnan_activation_cost(
+            player
+        )
+
         if not player.mana_pool.can_pay(
-            KINNAN_ACTIVATION_COST
+            activation_cost
         ):
             raise ValueError(
                 "Kinnan activation cost cannot be paid."
@@ -110,7 +116,7 @@ class KinnanResolutionEngine:
             )
 
         player.mana_pool.pay(
-            KINNAN_ACTIVATION_COST
+            activation_cost
         )
 
         removed_cards = player.library.draw_many(
@@ -146,9 +152,7 @@ class KinnanResolutionEngine:
         else:
             state.kinnan_chain.record_miss()
 
-        state.mana_spent += (
-            KINNAN_ACTIVATION_COST.total
-        )
+        state.mana_spent += activation_cost.total
         state.action_count += 1
 
     @classmethod

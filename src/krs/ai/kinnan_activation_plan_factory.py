@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from krs.actions.tap_permanent import TapPermanentAction
 from krs.cards.card import Card
 from krs.commanders.kinnan import is_kinnan
-from krs.commanders.kinnan_ability import KINNAN_ACTIVATION_COST
+from krs.commanders.kinnan_activation_cost import (
+    kinnan_activation_cost,
+)
 from krs.game.game_state import GameState
 from krs.game.permanent import Permanent
 from krs.game.player import Player
@@ -120,7 +122,7 @@ class KinnanActivationPlanFactory:
         selected_options = self._find_minimum_plan(
             player=player,
             current_mana=current_mana,
-            cost=KINNAN_ACTIVATION_COST,
+            cost=kinnan_activation_cost(player),
             kinnan=kinnan,
         )
 

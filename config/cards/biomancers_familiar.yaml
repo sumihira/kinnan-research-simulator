@@ -1,0 +1,9 @@
+card_name: Biomancer's Familiar
+
+abilities:
+  static:
+    - ability_type: activated_ability_cost_reduction
+      parameters:
+        source_type: creature
+        amount: 2
+        minimum_total_mana: 1

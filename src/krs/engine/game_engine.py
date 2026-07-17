@@ -9,7 +9,9 @@ from krs.ai.kinnan_action_factory import KinnanActionFactory
 from krs.ai.land_action_factory import LandActionFactory
 from krs.ai.strategy_factory import StrategyFactory
 from krs.commanders.kinnan import is_kinnan
-from krs.commanders.kinnan_ability import KINNAN_ACTIVATION_COST
+from krs.commanders.kinnan_activation_cost import (
+    kinnan_activation_cost,
+)
 from krs.engine.action_executor import ActionExecutor
 from krs.game.game_state import GameState
 from krs.game.permanent import Permanent
@@ -553,7 +555,7 @@ class GameEngine:
         )
 
         if not player.mana_pool.can_pay(
-            KINNAN_ACTIVATION_COST
+            kinnan_activation_cost(player)
         ):
             return None
 

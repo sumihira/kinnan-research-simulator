@@ -14,10 +14,10 @@
     "wins": 0
   },
   "experiment_statistics": {
-    "average_kinnan_activations": 0.36,
+    "average_kinnan_activations": 0.58,
     "average_turns_started": 6.0,
     "fastest_win_turn": null,
-    "kinnan_activation_standard_deviation": 0.8309031231136396,
+    "kinnan_activation_standard_deviation": 1.031309846748299,
     "turn_limit_games": 100,
     "turn_limit_percent": 100.0,
     "turn_limit_rate": 1.0,

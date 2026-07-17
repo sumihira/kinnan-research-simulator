@@ -60,7 +60,7 @@
     {
       "game_id": 6,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 2,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -108,7 +108,7 @@
     {
       "game_id": 12,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 1,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -124,7 +124,7 @@
     {
       "game_id": 14,
       "game_over": false,
-      "kinnan_activations": 4,
+      "kinnan_activations": 5,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -140,7 +140,7 @@
     {
       "game_id": 16,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 1,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -172,7 +172,7 @@
     {
       "game_id": 20,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 1,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -188,7 +188,7 @@
     {
       "game_id": 22,
       "game_over": false,
-      "kinnan_activations": 1,
+      "kinnan_activations": 3,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -300,7 +300,7 @@
     {
       "game_id": 36,
       "game_over": false,
-      "kinnan_activations": 1,
+      "kinnan_activations": 2,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -364,7 +364,7 @@
     {
       "game_id": 44,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 1,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -388,7 +388,7 @@
     {
       "game_id": 47,
       "game_over": false,
-      "kinnan_activations": 1,
+      "kinnan_activations": 2,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -404,7 +404,7 @@
     {
       "game_id": 49,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 2,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -436,7 +436,7 @@
     {
       "game_id": 53,
       "game_over": false,
-      "kinnan_activations": 3,
+      "kinnan_activations": 4,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -516,7 +516,7 @@
     {
       "game_id": 63,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 1,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -532,7 +532,7 @@
     {
       "game_id": 65,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 1,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -636,7 +636,7 @@
     {
       "game_id": 78,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 2,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -740,7 +740,7 @@
     {
       "game_id": 91,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 1,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -764,7 +764,7 @@
     {
       "game_id": 94,
       "game_over": false,
-      "kinnan_activations": 0,
+      "kinnan_activations": 3,
       "reached_turn_limit": true,
       "turns_started": 6,
       "winner": null
@@ -811,50 +811,61 @@
     }
   ],
   "kinnan_chain": {
-    "activation_chain_rate": 0.7222222222222222,
-    "activation_game_chain_rate": 0.5,
-    "average_longest_chain": 0.35,
-    "chain_activations": 26,
+    "activation_chain_rate": 0.7586206896551724,
+    "activation_game_chain_rate": 0.5483870967741935,
+    "average_longest_chain": 0.57,
+    "chain_activations": 44,
     "first_chain_turns": [
       6,
       5,
+      6,
       4,
       5,
       5,
       6,
       6,
+      6,
+      5,
+      6,
+      6,
+      6,
+      5,
       5,
       6,
       6
     ],
     "games": 100,
-    "games_with_activation": 20,
-    "games_with_chain": 10,
-    "max_chain": 4,
+    "games_with_activation": 31,
+    "games_with_chain": 17,
+    "max_chain": 5,
     "max_chain_distribution": [
       {
         "chain_length": 0,
-        "games": 81
+        "games": 70
       },
       {
         "chain_length": 1,
-        "games": 9
+        "games": 13
       },
       {
         "chain_length": 2,
-        "games": 5
+        "games": 10
       },
       {
         "chain_length": 3,
-        "games": 4
+        "games": 5
       },
       {
         "chain_length": 4,
         "games": 1
+      },
+      {
+        "chain_length": 5,
+        "games": 1
       }
     ],
-    "overall_chain_rate": 0.1,
-    "total_activations": 36,
+    "overall_chain_rate": 0.17,
+    "total_activations": 58,
     "turn_chain_statistics": [
       {
         "chain_rate_through_turn": 0.01,
@@ -864,29 +875,29 @@
         "turn": 4
       },
       {
-        "chain_rate_through_turn": 0.05,
-        "chains_started": 4,
-        "chains_started_rate": 0.04,
-        "chains_through_turn": 5,
+        "chain_rate_through_turn": 0.07,
+        "chains_started": 6,
+        "chains_started_rate": 0.06,
+        "chains_through_turn": 7,
         "turn": 5
       },
       {
-        "chain_rate_through_turn": 0.1,
-        "chains_started": 5,
-        "chains_started_rate": 0.05,
-        "chains_through_turn": 10,
+        "chain_rate_through_turn": 0.17,
+        "chains_started": 10,
+        "chains_started_rate": 0.1,
+        "chains_through_turn": 17,
         "turn": 6
       }
     ]
   },
   "summary": {
-    "average_kinnan_activations": 0.36,
+    "average_kinnan_activations": 0.58,
     "average_turns_started": 6.0,
     "fastest_win_turn": null,
     "games_completed": 100,
     "games_requested": 100,
     "non_wins": 100,
-    "total_kinnan_activations": 36,
+    "total_kinnan_activations": 58,
     "total_turns_started": 600,
     "turn_limit_games": 100,
     "win_rate": 0.0,

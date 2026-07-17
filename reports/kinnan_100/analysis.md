@@ -37,8 +37,8 @@
 | Turn-limit rate | 100.000% |
 | Average turns started | 6.000 |
 | Turn standard deviation | 0.000 |
-| Average Kinnan activations | 0.360 |
-| Kinnan activation standard deviation | 0.831 |
+| Average Kinnan activations | 0.580 |
+| Kinnan activation standard deviation | 1.031 |
 | Fastest win turn | N/A |
 
 ---
