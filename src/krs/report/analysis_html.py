@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from html import escape
 from pathlib import Path
 
+from krs.report.localization import ReportLocalizer
 from krs.simulation.experiment import ExperimentResult
 from krs.statistics.experiment_analysis import (
     ExperimentAnalysis,
@@ -11,17 +12,14 @@ from krs.statistics.experiment_analysis import (
 )
 
 
+_DEFAULT_TITLE = "Kinnan Research Simulator Analysis"
+
+
 @dataclass(frozen=True, slots=True)
 class ExperimentAnalysisHtmlReporter:
-    """
-    Creates a standalone HTML report from experiment statistics.
+    """Creates a localized standalone HTML analysis report."""
 
-    Statistical calculations are delegated to
-    ExperimentAnalysisCalculator. The reporter performs presentation and
-    serialization only.
-    """
-
-    title: str = "Kinnan Research Simulator Analysis"
+    title: str = _DEFAULT_TITLE
     analysis_calculator: ExperimentAnalysisCalculator = field(
         default_factory=ExperimentAnalysisCalculator,
     )
@@ -44,34 +42,55 @@ class ExperimentAnalysisHtmlReporter:
         """Create a complete standalone HTML document."""
         analysis = self.analyze(result)
 
-        return self.analysis_to_html(analysis)
+        return self.analysis_to_html(
+            analysis,
+            locale=result.config.locale,
+        )
 
     def analysis_to_html(
         self,
         analysis: ExperimentAnalysis,
+        *,
+        locale: str = "ja",
     ) -> str:
         """Convert an existing ExperimentAnalysis into HTML."""
+        localizer = ReportLocalizer(locale)
+        title = self._resolve_title(localizer)
+
         return "\n".join(
             (
                 "<!DOCTYPE html>",
-                '<html lang="en">',
+                f'<html lang="{localizer.locale}">',
                 "<head>",
                 '  <meta charset="utf-8">',
                 (
                     '  <meta name="viewport" '
                     'content="width=device-width, initial-scale=1">'
                 ),
-                f"  <title>{escape(self.title)}</title>",
+                f"  <title>{escape(title)}</title>",
                 "  <style>",
                 self._stylesheet(),
                 "  </style>",
                 "</head>",
                 "<body>",
                 '  <main class="report">',
-                self._render_header(analysis),
-                self._render_confidence_interval(analysis),
-                self._render_experiment_statistics(analysis),
-                self._render_win_turn_statistics(analysis),
+                self._render_header(
+                    analysis,
+                    localizer,
+                    title,
+                ),
+                self._render_confidence_interval(
+                    analysis,
+                    localizer,
+                ),
+                self._render_experiment_statistics(
+                    analysis,
+                    localizer,
+                ),
+                self._render_win_turn_statistics(
+                    analysis,
+                    localizer,
+                ),
                 "  </main>",
                 "</body>",
                 "</html>",
@@ -84,11 +103,7 @@ class ExperimentAnalysisHtmlReporter:
         result: ExperimentResult,
         path: str | Path,
     ) -> Path:
-        """
-        Write a standalone UTF-8 HTML analysis report.
-
-        Missing parent directories are created automatically.
-        """
+        """Write a standalone UTF-8 HTML analysis report."""
         output_path = Path(path)
 
         if output_path.exists() and output_path.is_dir():
@@ -110,7 +125,6 @@ class ExperimentAnalysisHtmlReporter:
             parents=True,
             exist_ok=True,
         )
-
         output_path.write_text(
             self.to_html(result),
             encoding="utf-8",
@@ -118,44 +132,61 @@ class ExperimentAnalysisHtmlReporter:
 
         return output_path
 
+    def _resolve_title(
+        self,
+        localizer: ReportLocalizer,
+    ) -> str:
+        if self.title != _DEFAULT_TITLE:
+            return self.title
+
+        return localizer.text(
+            ja="キナン・リサーチ・シミュレーター分析",
+            en=_DEFAULT_TITLE,
+        )
+
     def _render_header(
         self,
         analysis: ExperimentAnalysis,
+        localizer: ReportLocalizer,
+        title: str,
     ) -> str:
         interval = (
             analysis.experiment_statistics
             .win_rate_confidence_interval
         )
-
-        confidence_percent = (
-            interval.confidence_level
-            * 100.0
+        confidence_percent = interval.confidence_level * 100.0
+        subtitle = localizer.text(
+            ja=f"{analysis.games_completed:,}ゲームを分析",
+            en=f"{analysis.games_completed:,} games analyzed",
         )
 
         return "\n".join(
             (
                 "    <header>",
-                f"      <h1>{escape(self.title)}</h1>",
+                f"      <h1>{escape(title)}</h1>",
                 (
                     '      <p class="subtitle">'
-                    f"{analysis.games_completed:,} games analyzed"
+                    f"{escape(subtitle)}"
                     "</p>"
                 ),
                 '      <div class="headline-grid">',
                 self._render_headline_metric(
-                    label="Win rate",
+                    label=localizer.text(ja="勝率", en="Win rate"),
                     value=f"{analysis.win_rate_percent:.2f}%",
                 ),
                 self._render_headline_metric(
-                    label="Wins",
+                    label=localizer.text(ja="勝利数", en="Wins"),
                     value=f"{analysis.wins:,}",
                 ),
                 self._render_headline_metric(
-                    label="Non-wins",
+                    label=localizer.text(ja="非勝利数", en="Non-wins"),
                     value=f"{analysis.non_wins:,}",
                 ),
                 self._render_headline_metric(
-                    label="Confidence level",
+                    label=localizer.text(
+                        ja="信頼水準",
+                        en="Confidence level",
+                    ),
                     value=f"{confidence_percent:.1f}%",
                 ),
                 "      </div>",
@@ -181,12 +212,12 @@ class ExperimentAnalysisHtmlReporter:
     def _render_confidence_interval(
         self,
         analysis: ExperimentAnalysis,
+        localizer: ReportLocalizer,
     ) -> str:
         interval = (
             analysis.experiment_statistics
             .win_rate_confidence_interval
         )
-
         observed_percent = interval.observed_percent
         lower_percent = interval.lower_percent
         upper_percent = interval.upper_percent
@@ -194,42 +225,49 @@ class ExperimentAnalysisHtmlReporter:
 
         rows = (
             (
-                "Observed win rate",
+                localizer.text(ja="観測勝率", en="Observed win rate"),
                 f"{observed_percent:.3f}%",
             ),
             (
-                "Lower bound",
+                localizer.text(ja="下限", en="Lower bound"),
                 f"{lower_percent:.3f}%",
             ),
             (
-                "Upper bound",
+                localizer.text(ja="上限", en="Upper bound"),
                 f"{upper_percent:.3f}%",
             ),
             (
-                "Interval width",
-                f"{width_percent:.3f} percentage points",
+                localizer.text(ja="区間幅", en="Interval width"),
+                localizer.text(
+                    ja=f"{width_percent:.3f}パーセントポイント",
+                    en=f"{width_percent:.3f} percentage points",
+                ),
             ),
             (
-                "Wins / Games",
+                localizer.text(
+                    ja="勝利数／ゲーム数",
+                    en="Wins / Games",
+                ),
                 f"{interval.wins:,} / {interval.games:,}",
             ),
+        )
+        heading = localizer.text(
+            ja="勝率の信頼区間",
+            en="Win Rate Confidence Interval",
         )
 
         return "\n".join(
             (
-                (
-                    '    <section '
-                    'aria-labelledby="confidence-heading">'
-                ),
+                '    <section aria-labelledby="confidence-heading">',
                 (
                     '      <h2 id="confidence-heading">'
-                    "Win Rate Confidence Interval"
+                    f"{escape(heading)}"
                     "</h2>"
                 ),
                 '      <div class="interval-visual">',
                 (
                     '        <div class="interval-track" '
-                    'aria-label="Win rate confidence interval">'
+                    f'aria-label="{escape(heading)}">'
                 ),
                 (
                     '          <div class="interval-range" '
@@ -252,44 +290,70 @@ class ExperimentAnalysisHtmlReporter:
     def _render_experiment_statistics(
         self,
         analysis: ExperimentAnalysis,
+        localizer: ReportLocalizer,
     ) -> str:
         statistics = analysis.experiment_statistics
-
         activation_deviation = (
             statistics.kinnan_activation_standard_deviation
         )
 
         rows = (
             (
-                "Turn-limit games",
+                localizer.text(
+                    ja="ターン上限到達ゲーム数",
+                    en="Turn-limit games",
+                ),
                 f"{statistics.turn_limit_games:,}",
             ),
             (
-                "Turn-limit rate",
+                localizer.text(
+                    ja="ターン上限到達率",
+                    en="Turn-limit rate",
+                ),
                 f"{statistics.turn_limit_percent:.3f}%",
             ),
             (
-                "Average turns started",
+                localizer.text(
+                    ja="平均開始ターン数",
+                    en="Average turns started",
+                ),
                 f"{statistics.average_turns_started:.3f}",
             ),
             (
-                "Turn standard deviation",
+                localizer.text(
+                    ja="開始ターン数の標準偏差",
+                    en="Turn standard deviation",
+                ),
                 f"{statistics.turn_standard_deviation:.3f}",
             ),
             (
-                "Average Kinnan activations",
+                localizer.text(
+                    ja="平均キナン起動回数",
+                    en="Average Kinnan activations",
+                ),
                 f"{statistics.average_kinnan_activations:.3f}",
             ),
             (
-                "Kinnan activation standard deviation",
+                localizer.text(
+                    ja="キナン起動回数の標準偏差",
+                    en="Kinnan activation standard deviation",
+                ),
                 f"{activation_deviation:.3f}",
             ),
             (
-                "Fastest win turn",
+                localizer.text(
+                    ja="最速勝利ターン",
+                    en="Fastest win turn",
+                ),
                 self._format_optional_integer(
-                    statistics.fastest_win_turn
+                    statistics.fastest_win_turn,
+                    localizer,
                 ),
             ),
+        )
+        heading = localizer.text(
+            ja="実験統計",
+            en="Experiment Statistics",
         )
 
         return "\n".join(
@@ -300,7 +364,7 @@ class ExperimentAnalysisHtmlReporter:
                 ),
                 (
                     '      <h2 id="experiment-statistics-heading">'
-                    "Experiment Statistics"
+                    f"{escape(heading)}"
                     "</h2>"
                 ),
                 self._render_table(rows),
@@ -311,82 +375,118 @@ class ExperimentAnalysisHtmlReporter:
     def _render_win_turn_statistics(
         self,
         analysis: ExperimentAnalysis,
+        localizer: ReportLocalizer,
     ) -> str:
         statistics = analysis.win_turn_statistics
 
         rows = (
             (
-                "Winning games",
+                localizer.text(ja="勝利ゲーム数", en="Winning games"),
                 f"{statistics.wins:,}",
             ),
             (
-                "Fastest win turn",
+                localizer.text(
+                    ja="最速勝利ターン",
+                    en="Fastest win turn",
+                ),
                 self._format_optional_integer(
-                    statistics.fastest_win_turn
+                    statistics.fastest_win_turn,
+                    localizer,
                 ),
             ),
             (
-                "Slowest win turn",
+                localizer.text(
+                    ja="最遅勝利ターン",
+                    en="Slowest win turn",
+                ),
                 self._format_optional_integer(
-                    statistics.slowest_win_turn
+                    statistics.slowest_win_turn,
+                    localizer,
                 ),
             ),
             (
-                "Average win turn",
+                localizer.text(
+                    ja="平均勝利ターン",
+                    en="Average win turn",
+                ),
                 self._format_optional_float(
-                    statistics.average_win_turn
+                    statistics.average_win_turn,
+                    localizer,
                 ),
             ),
             (
-                "Median win turn",
+                localizer.text(
+                    ja="勝利ターン中央値",
+                    en="Median win turn",
+                ),
                 self._format_optional_float(
-                    statistics.median_win_turn
+                    statistics.median_win_turn,
+                    localizer,
                 ),
             ),
             (
-                "90th percentile win turn",
+                localizer.text(
+                    ja="勝利ターン90パーセンタイル",
+                    en="90th percentile win turn",
+                ),
                 self._format_optional_integer(
-                    statistics.percentile_90_win_turn
+                    statistics.percentile_90_win_turn,
+                    localizer,
                 ),
             ),
             (
-                "95th percentile win turn",
+                localizer.text(
+                    ja="勝利ターン95パーセンタイル",
+                    en="95th percentile win turn",
+                ),
                 self._format_optional_integer(
-                    statistics.percentile_95_win_turn
+                    statistics.percentile_95_win_turn,
+                    localizer,
                 ),
             ),
             (
-                "Win-turn standard deviation",
+                localizer.text(
+                    ja="勝利ターンの標準偏差",
+                    en="Win-turn standard deviation",
+                ),
                 self._format_optional_float(
-                    statistics.win_turn_standard_deviation
+                    statistics.win_turn_standard_deviation,
+                    localizer,
                 ),
             ),
         )
 
-        empty_message = (
-            ""
-            if statistics.has_wins
-            else "\n".join(
+        empty_message = ""
+        if not statistics.has_wins:
+            message = localizer.text(
+                ja=(
+                    "勝利したゲームはありません。"
+                    "勝利ターンに関する統計は利用できません。"
+                ),
+                en=(
+                    "No winning games were observed. "
+                    "Win-turn measurements are unavailable."
+                ),
+            )
+            empty_message = "\n".join(
                 (
                     '      <p class="empty-message">',
-                    (
-                        "        No winning games were observed. "
-                        "Win-turn measurements are unavailable."
-                    ),
+                    f"        {escape(message)}",
                     "      </p>",
                 )
             )
+
+        heading = localizer.text(
+            ja="勝利ターン統計",
+            en="Win Turn Statistics",
         )
 
         return "\n".join(
             (
-                (
-                    '    <section '
-                    'aria-labelledby="win-turn-heading">'
-                ),
+                '    <section aria-labelledby="win-turn-heading">',
                 (
                     '      <h2 id="win-turn-heading">'
-                    "Win Turn Statistics"
+                    f"{escape(heading)}"
                     "</h2>"
                 ),
                 empty_message,
@@ -430,22 +530,22 @@ class ExperimentAnalysisHtmlReporter:
     @staticmethod
     def _format_optional_integer(
         value: int | None,
+        localizer: ReportLocalizer,
     ) -> str:
-        return (
-            str(value)
-            if value is not None
-            else "N/A"
-        )
+        if value is not None:
+            return str(value)
+
+        return localizer.text(ja="該当なし", en="N/A")
 
     @staticmethod
     def _format_optional_float(
         value: float | None,
+        localizer: ReportLocalizer,
     ) -> str:
-        return (
-            f"{value:.3f}"
-            if value is not None
-            else "N/A"
-        )
+        if value is not None:
+            return f"{value:.3f}"
+
+        return localizer.text(ja="該当なし", en="N/A")
 
     @staticmethod
     def _stylesheet() -> str:

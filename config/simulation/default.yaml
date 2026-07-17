@@ -1,3 +1,4 @@
+locale: ja
 strategy: balanced
 
 games: 1000

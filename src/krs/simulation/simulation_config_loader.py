@@ -59,6 +59,10 @@ class SimulationConfigLoader:
         self,
         raw_data: dict[str, Any],
     ) -> SimulationConfig:
+        locale = raw_data.get(
+            "locale",
+            "ja",
+        )
         strategy = raw_data.get(
             "strategy",
             "balanced",
@@ -84,6 +88,11 @@ class SimulationConfigLoader:
             "replay",
             {},
         )
+
+        if not isinstance(locale, str):
+            raise ValueError(
+                "locale must be a string."
+            )
 
         if not isinstance(strategy, str):
             raise ValueError(
@@ -133,6 +142,7 @@ class SimulationConfigLoader:
         )
 
         return SimulationConfig(
+            locale=locale,
             strategy_name=strategy,
             games=games,
             max_turns=max_turns,

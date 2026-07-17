@@ -9,11 +9,11 @@
 | Deck | kinnan |
 | Total cards | 100 |
 | Unique cards | 100 |
-| Configured cards | 35 |
-| Oracle-only cards | 65 |
-| Configured unique cards | 35 |
-| Oracle-only unique cards | 65 |
-| Implementation rate | 35.000% |
+| Configured cards | 36 |
+| Oracle-only cards | 64 |
+| Configured unique cards | 36 |
+| Oracle-only unique cards | 64 |
+| Implementation rate | 36.000% |
 
 ---
 
@@ -43,6 +43,7 @@
 | Llanowar Elves | 1 | No | Yes |
 | Mana Confluence | 1 | No | Yes |
 | Mana Vault | 1 | No | Yes |
+| Nyxbloom Ancient | 1 | No | Yes |
 | Otawara, Soaring City | 1 | No | Yes |
 | Rejuvenating Springs | 1 | No | Yes |
 | Roaming Throne | 1 | No | Yes |
@@ -103,28 +104,27 @@
 | 38 | Mox Amber | 1 | No | Yes |
 | 39 | Mox Diamond | 1 | No | Yes |
 | 40 | Mox Opal | 1 | No | Yes |
-| 41 | Nyxbloom Ancient | 1 | No | Yes |
-| 42 | Oboro Breezecaller | 1 | No | Yes |
-| 43 | Palinchron | 1 | No | Yes |
-| 44 | Peregrine Drake | 1 | No | Yes |
-| 45 | Pestermite | 1 | No | Yes |
-| 46 | Phyrexian Metamorph | 1 | No | Yes |
-| 47 | Polluted Delta | 1 | No | Yes |
-| 48 | Riptide Shapeshifter | 1 | No | Yes |
-| 49 | Scalding Tarn | 1 | No | Yes |
-| 50 | Seedborn Muse | 1 | No | Yes |
-| 51 | Shang-Chi, Master of Kung Fu | 1 | No | Yes |
-| 52 | Silver Surfer, Cosmic Voyager | 1 | No | Yes |
-| 53 | Simic Signet | 1 | No | Yes |
-| 54 | Sowing Mycospawn | 1 | No | Yes |
-| 55 | Spark Double | 1 | No | Yes |
-| 56 | Sphinx of the Second Sun | 1 | No | Yes |
-| 57 | Springleaf Drum | 1 | No | Yes |
-| 58 | Starting Town | 1 | No | Yes |
-| 59 | Sylvan Scrying | 1 | No | Yes |
-| 60 | Synth Infiltrator | 1 | No | Yes |
-| 61 | Talon Gates of Madara | 1 | No | Yes |
-| 62 | Ulvenwald Hydra | 1 | No | Yes |
-| 63 | Woodland Bellower | 1 | No | Yes |
-| 64 | Worldly Tutor | 1 | No | Yes |
-| 65 | Y'shtola Rhul | 1 | No | Yes |
+| 41 | Oboro Breezecaller | 1 | No | Yes |
+| 42 | Palinchron | 1 | No | Yes |
+| 43 | Peregrine Drake | 1 | No | Yes |
+| 44 | Pestermite | 1 | No | Yes |
+| 45 | Phyrexian Metamorph | 1 | No | Yes |
+| 46 | Polluted Delta | 1 | No | Yes |
+| 47 | Riptide Shapeshifter | 1 | No | Yes |
+| 48 | Scalding Tarn | 1 | No | Yes |
+| 49 | Seedborn Muse | 1 | No | Yes |
+| 50 | Shang-Chi, Master of Kung Fu | 1 | No | Yes |
+| 51 | Silver Surfer, Cosmic Voyager | 1 | No | Yes |
+| 52 | Simic Signet | 1 | No | Yes |
+| 53 | Sowing Mycospawn | 1 | No | Yes |
+| 54 | Spark Double | 1 | No | Yes |
+| 55 | Sphinx of the Second Sun | 1 | No | Yes |
+| 56 | Springleaf Drum | 1 | No | Yes |
+| 57 | Starting Town | 1 | No | Yes |
+| 58 | Sylvan Scrying | 1 | No | Yes |
+| 59 | Synth Infiltrator | 1 | No | Yes |
+| 60 | Talon Gates of Madara | 1 | No | Yes |
+| 61 | Ulvenwald Hydra | 1 | No | Yes |
+| 62 | Woodland Bellower | 1 | No | Yes |
+| 63 | Worldly Tutor | 1 | No | Yes |
+| 64 | Y'shtola Rhul | 1 | No | Yes |

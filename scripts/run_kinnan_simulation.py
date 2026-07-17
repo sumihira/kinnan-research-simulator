@@ -18,6 +18,10 @@ from krs.simulation.preflight import (
     SimulationPreflightValidator,
 )
 from krs.simulation.simulation_factory import SimulationFactory
+from krs.report.localization import ReportLocalizer
+from krs.simulation.simulation_config_loader import (
+    SimulationConfigLoader,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -87,6 +91,15 @@ def create_parser() -> argparse.ArgumentParser:
         help="Goldfish player name.",
     )
     parser.add_argument(
+        "--locale",
+        choices=("ja", "en"),
+        default=None,
+        help=(
+            "Override report locale. "
+            "Supported values: ja, en."
+        ),
+    )
+    parser.add_argument(
         "--games",
         type=int,
         default=None,
@@ -142,6 +155,7 @@ def create_config_overrides(
     )
 
     return SimulationConfigOverrides(
+        locale=arguments.locale,
         games=arguments.games,
         max_turns=arguments.max_turns,
         seed=arguments.seed,
@@ -152,43 +166,94 @@ def create_config_overrides(
 
 def print_preflight(
     result: SimulationPreflightResult,
+    *,
+    locale: str = "ja",
 ) -> None:
-    """Print one preflight result."""
-    status = (
-        "READY"
-        if result.ready
-        else "BLOCKED"
+    """Print one localized preflight result."""
+    localizer = ReportLocalizer(locale)
+
+    status = localizer.text(
+        ja=(
+            "実行可能"
+            if result.ready
+            else "実行不可"
+        ),
+        en=(
+            "READY"
+            if result.ready
+            else "BLOCKED"
+        ),
     )
 
     print()
-    print("Kinnan Simulation Preflight")
-    print("=" * 64)
-    print(f"Status                       : {status}")
-    print(f"Deck                         : {result.deck_name}")
-    print(f"Total cards                  : {result.total_cards:,}")
-    print(f"Main-deck cards              : {result.main_deck_cards:,}")
-    print(f"Unique cards                 : {result.unique_cards:,}")
     print(
-        "Configured unique cards      : "
+        localizer.text(
+            ja="キナン・シミュレーション事前検証",
+            en="Kinnan Simulation Preflight",
+        )
+    )
+    print("=" * 64)
+
+    print(
+        f"{localizer.text(ja='状態', en='Status'):<29}: "
+        f"{status}"
+    )
+    print(
+        f"{localizer.text(ja='デッキ', en='Deck'):<29}: "
+        f"{result.deck_name}"
+    )
+    print(
+        f"{localizer.text(ja='総カード枚数', en='Total cards'):<29}: "
+        f"{result.total_cards:,}"
+    )
+    print(
+        f"{localizer.text(ja='メインデッキ枚数', en='Main-deck cards'):<29}: "
+        f"{result.main_deck_cards:,}"
+    )
+    print(
+        f"{localizer.text(ja='ユニークカード数', en='Unique cards'):<29}: "
+        f"{result.unique_cards:,}"
+    )
+    print(
+        f"{localizer.text(ja='設定済みユニークカード数', en='Configured unique cards'):<29}: "
         f"{result.configured_unique_cards:,}"
     )
     print(
-        "Oracle-only unique cards     : "
+        f"{localizer.text(ja='Oracle情報のみのカード数', en='Oracle-only unique cards'):<29}: "
         f"{result.oracle_only_unique_cards:,}"
     )
-    print(f"Land cards                   : {result.land_cards:,}")
-    print(f"Implemented mana sources     : {result.mana_source_cards:,}")
-    print(f"Blue mana sources            : {result.blue_source_cards:,}")
-    print(f"Green mana sources           : {result.green_source_cards:,}")
+    print(
+        f"{localizer.text(ja='土地カード数', en='Land cards'):<29}: "
+        f"{result.land_cards:,}"
+    )
+    print(
+        f"{localizer.text(ja='実装済みマナ源', en='Implemented mana sources'):<29}: "
+        f"{result.mana_source_cards:,}"
+    )
+    print(
+        f"{localizer.text(ja='青マナ源', en='Blue mana sources'):<29}: "
+        f"{result.blue_source_cards:,}"
+    )
+    print(
+        f"{localizer.text(ja='緑マナ源', en='Green mana sources'):<29}: "
+        f"{result.green_source_cards:,}"
+    )
 
     if result.issues:
         print("-" * 64)
 
     for issue in result.issues:
-        level = (
-            "ERROR"
-            if issue.blocking
-            else "WARNING"
+        level = localizer.text(
+            ja=(
+                "エラー"
+                if issue.blocking
+                else "警告"
+            ),
+            en=(
+                "ERROR"
+                if issue.blocking
+                else "WARNING"
+            ),
         )
 
         print(
@@ -199,69 +264,159 @@ def print_preflight(
 def print_result(
     result: FileSimulationRunResult,
 ) -> None:
+    """Print one localized simulation result."""
     summary = result.experiment.summary
     chain = summary.kinnan_chain
     audit = result.audit
     config = result.config
+    localizer = ReportLocalizer(config.locale)
 
     print_preflight(
-        result.preflight
+        result.preflight,
+        locale=config.locale,
     )
 
+    def print_metric(
+        *,
+        ja: str,
+        en: str,
+        value: object,
+    ) -> None:
+        label = localizer.text(
+            ja=ja,
+            en=en,
+        )
+        print(f"{label:<29}: {value}")
+
     print()
-    print("Kinnan Research Simulator")
+    print(
+        localizer.text(
+            ja="キナン・リサーチ・シミュレーター",
+            en="Kinnan Research Simulator",
+        )
+    )
     print("=" * 64)
-    print(f"Deck                         : {result.deck.name}")
-    print(f"Games requested              : {summary.games_requested:,}")
-    print(f"Games completed              : {summary.games_completed:,}")
-    print(f"Maximum turns                : {config.max_turns:,}")
-    print(
-        "Seed                         : "
-        f"{config.seed if config.seed is not None else 'random'}"
+
+    print_metric(
+        ja="デッキ",
+        en="Deck",
+        value=result.deck.name,
     )
-    print(f"Workers                      : {config.workers:,}")
-    print(f"Implementation rate          : {audit.implementation_rate:.2%}")
-    print(f"Configured unique cards      : {audit.configured_unique_cards:,}")
-    print(f"Oracle-only unique cards     : {audit.oracle_only_unique_cards:,}")
+    print_metric(
+        ja="要求ゲーム数",
+        en="Games requested",
+        value=f"{summary.games_requested:,}",
+    )
+    print_metric(
+        ja="完了ゲーム数",
+        en="Games completed",
+        value=f"{summary.games_completed:,}",
+    )
+    print_metric(
+        ja="最大ターン数",
+        en="Maximum turns",
+        value=f"{config.max_turns:,}",
+    )
+    print_metric(
+        ja="乱数シード",
+        en="Seed",
+        value=localizer.random_seed(config.seed),
+    )
+    print_metric(
+        ja="並列ワーカー数",
+        en="Workers",
+        value=f"{config.workers:,}",
+    )
+    print_metric(
+        ja="カード実装率",
+        en="Implementation rate",
+        value=f"{audit.implementation_rate:.2%}",
+    )
+    print_metric(
+        ja="設定済みユニークカード数",
+        en="Configured unique cards",
+        value=f"{audit.configured_unique_cards:,}",
+    )
+    print_metric(
+        ja="Oracle情報のみのカード数",
+        en="Oracle-only unique cards",
+        value=f"{audit.oracle_only_unique_cards:,}",
+    )
+
     print("-" * 64)
-    print(f"Kinnan activation games      : {chain.games_with_activation:,}")
-    print(f"Kinnan chain games           : {chain.games_with_chain:,}")
-    print(f"Overall chain rate           : {chain.overall_chain_rate:.2%}")
-    print(
-        "Activation-game chain rate  : "
-        f"{chain.activation_game_chain_rate:.2%}"
+
+    print_metric(
+        ja="キナン起動ゲーム数",
+        en="Kinnan activation games",
+        value=f"{chain.games_with_activation:,}",
     )
-    print(f"Total Kinnan activations     : {chain.total_activations:,}")
-    print(f"Chain activations            : {chain.chain_activations:,}")
-    print(
-        "Activation-based chain rate : "
-        f"{chain.activation_chain_rate:.2%}"
+    print_metric(
+        ja="連続起動成立ゲーム数",
+        en="Kinnan chain games",
+        value=f"{chain.games_with_chain:,}",
     )
-    print(
-        "Average maximum chain       : "
-        f"{chain.average_longest_chain:.3f}"
+    print_metric(
+        ja="全ゲーム基準の連続起動率",
+        en="Overall chain rate",
+        value=f"{chain.overall_chain_rate:.2%}",
     )
-    print(f"Maximum chain                : {chain.max_chain:,}")
+    print_metric(
+        ja="起動ゲーム基準の連続起動率",
+        en="Activation-game chain rate",
+        value=f"{chain.activation_game_chain_rate:.2%}",
+    )
+    print_metric(
+        ja="キナン総起動回数",
+        en="Total Kinnan activations",
+        value=f"{chain.total_activations:,}",
+    )
+    print_metric(
+        ja="連続起動回数",
+        en="Chain activations",
+        value=f"{chain.chain_activations:,}",
+    )
+    print_metric(
+        ja="起動回数基準の連続起動率",
+        en="Activation-based chain rate",
+        value=f"{chain.activation_chain_rate:.2%}",
+    )
+    print_metric(
+        ja="平均最大連続起動数",
+        en="Average maximum chain",
+        value=f"{chain.average_longest_chain:.3f}",
+    )
+    print_metric(
+        ja="最大連続起動数",
+        en="Maximum chain",
+        value=f"{chain.max_chain:,}",
+    )
+
     print("-" * 64)
-    print(
-        "Summary Markdown            : "
-        f"{result.report_paths.summary_markdown_path}"
+
+    print_metric(
+        ja="概要Markdown",
+        en="Summary Markdown",
+        value=result.report_paths.summary_markdown_path,
     )
-    print(
-        "Experiment JSON             : "
-        f"{result.report_paths.json_path}"
+    print_metric(
+        ja="実験JSON",
+        en="Experiment JSON",
+        value=result.report_paths.json_path,
     )
-    print(
-        "Experiment HTML             : "
-        f"{result.report_paths.html_path}"
+    print_metric(
+        ja="実験HTML",
+        en="Experiment HTML",
+        value=result.report_paths.html_path,
     )
-    print(
-        "Experiment Excel            : "
-        f"{result.report_paths.excel_path}"
+    print_metric(
+        ja="実験Excel",
+        en="Experiment Excel",
+        value=result.report_paths.excel_path,
     )
-    print(
-        "Implementation audit        : "
-        f"{result.audit_markdown_path}"
+    print_metric(
+        ja="実装状況監査",
+        en="Implementation audit",
+        value=result.audit_markdown_path,
     )
 
 
@@ -271,7 +426,7 @@ def run_preflight_only(
     """Load and validate the deck without running Monte Carlo."""
     factory = SimulationFactory()
 
-    _, deck = factory.load_config_and_deck(
+    config, deck = factory.load_config_and_deck(
         simulation_config_path=(
             arguments.simulation_config
         ),
@@ -294,7 +449,16 @@ def run_preflight_only(
         audit=audit,
     )
 
-    print_preflight(preflight)
+    locale = (
+       arguments.locale
+        if arguments.locale is not None
+        else config.locale
+    )
+
+    print_preflight(
+        preflight,
+        locale=locale,
+    )
 
     return 0 if preflight.ready else 1
 

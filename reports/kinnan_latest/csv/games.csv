@@ -1,0 +1,11 @@
+game_id,turns_started,kinnan_activations,reached_turn_limit,game_over,winner
+0,6,0,True,False,
+1,6,1,True,False,
+2,6,3,True,False,
+3,6,0,True,False,
+4,6,0,True,False,
+5,6,0,True,False,
+6,6,2,True,False,
+7,6,0,True,False,
+8,6,0,True,False,
+9,6,0,True,False,

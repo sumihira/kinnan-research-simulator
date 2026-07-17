@@ -11,6 +11,7 @@ from scripts.run_kinnan_simulation import (
 
 def create_arguments(
     *,
+    locale: str | None = None,
     games: int | None = None,
     max_turns: int | None = None,
     seed: int | None = None,
@@ -18,6 +19,7 @@ def create_arguments(
     workers: int | None = None,
 ) -> argparse.Namespace:
     return argparse.Namespace(
+        locale=locale,
         games=games,
         max_turns=max_turns,
         seed=seed,
@@ -29,6 +31,7 @@ def create_arguments(
 def test_create_config_overrides() -> None:
     overrides = create_config_overrides(
         create_arguments(
+            locale="en",
             games=100,
             max_turns=8,
             seed=12345,
@@ -36,6 +39,7 @@ def test_create_config_overrides() -> None:
         )
     )
 
+    assert overrides.locale == "en"
     assert overrides.games == 100
     assert overrides.max_turns == 8
     assert overrides.seed == 12345

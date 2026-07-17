@@ -24,6 +24,7 @@ def test_loads_complete_simulation_config(
     path = write_config(
         tmp_path / "simulation.yaml",
         """
+locale: en
 strategy: combo
 games: 5000
 max_turns: 8
@@ -38,6 +39,7 @@ replay:
 
     config = SimulationConfigLoader().load(path)
 
+    assert config.locale == "en"
     assert config.strategy_name == "combo"
     assert config.games == 5000
     assert config.max_turns == 8
@@ -59,6 +61,7 @@ strategy: balanced
 
     config = SimulationConfigLoader().load(path)
 
+    assert config.locale == "ja"
     assert config.strategy_name == "balanced"
     assert config.games == 1000
     assert config.max_turns == 6
@@ -514,3 +517,17 @@ save_replays: enabled
         SimulationConfigLoader().load(
             config_path
         )
+
+def test_locale_rejects_non_string_value(
+    tmp_path: Path,
+) -> None:
+    path = write_config(
+        tmp_path / "locale.yaml",
+        "locale: 123\n",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="locale must be a string",
+    ):
+        SimulationConfigLoader().load(path)

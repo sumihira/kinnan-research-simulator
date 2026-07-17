@@ -192,7 +192,7 @@ def test_analysis_to_html_returns_complete_document() -> None:
     )
 
     assert html.startswith("<!DOCTYPE html>")
-    assert '<html lang="en">' in html
+    assert '<html lang="ja">' in html
     assert '<meta charset="utf-8">' in html
     assert "</body>" in html
     assert "</html>" in html
@@ -204,11 +204,11 @@ def test_html_contains_overview_values() -> None:
         .analysis_to_html(create_analysis())
     )
 
-    assert "4 games analyzed" in html
-    assert "Win rate" in html
+    assert "4ゲームを分析" in html
+    assert "勝率" in html
     assert "50.00%" in html
     assert ">2<" in html
-    assert "Confidence level" in html
+    assert "信頼水準" in html
     assert "95.0%" in html
 
 
@@ -218,13 +218,13 @@ def test_html_contains_confidence_interval() -> None:
         .analysis_to_html(create_analysis())
     )
 
-    assert "Win Rate Confidence Interval" in html
-    assert "Observed win rate" in html
-    assert "Lower bound" in html
+    assert "勝率の信頼区間" in html
+    assert "観測勝率" in html
+    assert "下限" in html
     assert "15.000%" in html
-    assert "Upper bound" in html
+    assert "上限" in html
     assert "85.000%" in html
-    assert "70.000 percentage points" in html
+    assert "70.000パーセントポイント" in html
     assert "2 / 4" in html
 
 
@@ -248,15 +248,15 @@ def test_html_contains_experiment_statistics() -> None:
         .analysis_to_html(create_analysis())
     )
 
-    assert "Experiment Statistics" in html
-    assert "Turn-limit games" in html
-    assert "Turn-limit rate" in html
-    assert "Average turns started" in html
+    assert "実験統計" in html
+    assert "ターン上限到達ゲーム数" in html
+    assert "ターン上限到達率" in html
+    assert "平均開始ターン数" in html
     assert "4.500" in html
-    assert "Turn standard deviation" in html
+    assert "開始ターン数の標準偏差" in html
     assert "1.658" in html
-    assert "Average Kinnan activations" in html
-    assert "Kinnan activation standard deviation" in html
+    assert "平均キナン起動回数" in html
+    assert "キナン起動回数の標準偏差" in html
     assert "0.707" in html
 
 
@@ -266,14 +266,14 @@ def test_html_contains_win_turn_statistics() -> None:
         .analysis_to_html(create_analysis())
     )
 
-    assert "Win Turn Statistics" in html
-    assert "Fastest win turn" in html
-    assert "Slowest win turn" in html
-    assert "Average win turn" in html
-    assert "Median win turn" in html
-    assert "90th percentile win turn" in html
-    assert "95th percentile win turn" in html
-    assert "Win-turn standard deviation" in html
+    assert "勝利ターン統計" in html
+    assert "最速勝利ターン" in html
+    assert "最遅勝利ターン" in html
+    assert "平均勝利ターン" in html
+    assert "勝利ターン中央値" in html
+    assert "勝利ターン90パーセンタイル" in html
+    assert "勝利ターン95パーセンタイル" in html
+    assert "勝利ターンの標準偏差" in html
 
 
 def test_html_supports_no_wins() -> None:
@@ -288,10 +288,10 @@ def test_html_supports_no_wins() -> None:
 
     assert "0.00%" in html
     assert (
-        "No winning games were observed."
+        "勝利したゲームはありません。"
         in html
     )
-    assert html.count(">N/A<") == 8
+    assert html.count(">該当なし<") == 8
 
 
 def test_html_escapes_title() -> None:
@@ -439,3 +439,19 @@ def test_report_does_not_modify_experiment_result() -> None:
     assert result.config is original_config
     assert result.summary is original_summary
     assert result.game_results is original_results
+
+def test_analysis_to_html_supports_english() -> None:
+    html = (
+        ExperimentAnalysisHtmlReporter()
+        .analysis_to_html(
+            create_analysis(),
+            locale="en",
+        )
+    )
+
+    assert '<html lang="en">' in html
+    assert "Kinnan Research Simulator Analysis" in html
+    assert "4 games analyzed" in html
+    assert "Win Rate Confidence Interval" in html
+    assert "Experiment Statistics" in html
+    assert "Win Turn Statistics" in html

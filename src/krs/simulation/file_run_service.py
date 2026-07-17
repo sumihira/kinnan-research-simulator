@@ -33,6 +33,7 @@ class SimulationConfigOverrides:
     None means that the value loaded from YAML is retained.
     """
 
+    locale: str | None = None
     games: int | None = None
     max_turns: int | None = None
     seed: int | None = None
@@ -40,6 +41,20 @@ class SimulationConfigOverrides:
     workers: int | None = None
 
     def __post_init__(self) -> None:
+        if self.locale is not None:
+            normalized_locale = self.locale.strip().casefold()
+
+            if normalized_locale not in {"ja", "en"}:
+                raise ValueError(
+                    "locale override must be one of: en, ja."
+                )
+
+            object.__setattr__(
+                self,
+                "locale",
+                normalized_locale,
+            )
+
         if self.games is not None and self.games < 1:
             raise ValueError(
                 "games override must be at least 1."
@@ -67,7 +82,8 @@ class SimulationConfigOverrides:
     def has_overrides(self) -> bool:
         """Return whether at least one setting is overridden."""
         return (
-            self.games is not None
+            self.locale is not None
+            or self.games is not None
             or self.max_turns is not None
             or self.seed_is_overridden
             or self.workers is not None
@@ -81,7 +97,13 @@ class SimulationConfigOverrides:
         if not self.has_overrides:
             return config
 
-        replacement_values: dict[str, int | None] = {}
+        replacement_values: dict[
+            str,
+            str | int | None,
+        ] = {}
+
+        if self.locale is not None:
+            replacement_values["locale"] = self.locale
 
         if self.games is not None:
             replacement_values["games"] = self.games
