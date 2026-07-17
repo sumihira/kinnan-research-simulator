@@ -1,0 +1,8 @@
+card_name: Nyxbloom Ancient
+
+abilities:
+  static:
+    - ability_type: mana_production_multiplier
+      parameters:
+        multiplier: 3
+        source_filter: {}

@@ -15,6 +15,9 @@ from krs.mana.mana import Mana
 from krs.mana.mana_cost import ManaCost
 from types import MappingProxyType
 from collections.abc import Mapping
+from krs.mana.mana_production import (
+    mana_production_multiplier,
+)
 
 
 _MANA_SYMBOL_PATTERN = re.compile(r"\{([^{}]+)\}")
@@ -308,6 +311,7 @@ class ManaPermanentCastPlanFactory:
             options = self._permanent_options(
                 permanent=permanent,
                 kinnan_is_active=kinnan_is_active,
+                battlefield=tuple(permanents),
             )
 
             if options:
@@ -320,6 +324,7 @@ class ManaPermanentCastPlanFactory:
         *,
         permanent: Permanent,
         kinnan_is_active: bool,
+        battlefield: tuple[Permanent, ...],
     ) -> tuple[_ManaSourceOption, ...]:
         if permanent.tapped:
             return ()
@@ -333,6 +338,11 @@ class ManaPermanentCastPlanFactory:
         card = permanent.effective_card
         options: list[_ManaSourceOption] = []
 
+        multiplier = mana_production_multiplier(
+            source=permanent,
+            battlefield=battlefield,
+        )
+
         if card.mana_abilities:
             for ability_index, ability in enumerate(
                 card.mana_abilities
@@ -344,7 +354,7 @@ class ManaPermanentCastPlanFactory:
                     ability.produced_mana.items(),
                     key=lambda item: item[0].value,
                 ):
-                    amount = base_amount
+                    amount = base_amount * multiplier
 
                     if (
                         kinnan_is_active
@@ -371,7 +381,7 @@ class ManaPermanentCastPlanFactory:
                 _ManaSourceOption(
                     permanent=permanent,
                     mana=mana,
-                    amount=1,
+                    amount=multiplier,
                     ability_index=0,
                 )
             )

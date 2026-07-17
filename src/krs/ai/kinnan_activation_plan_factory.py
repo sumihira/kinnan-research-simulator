@@ -14,6 +14,9 @@ from krs.game.permanent import Permanent
 from krs.game.player import Player
 from krs.mana.mana import Mana
 from krs.mana.mana_cost import ManaCost
+from krs.mana.mana_production import (
+    mana_production_multiplier,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +244,7 @@ class KinnanActivationPlanFactory:
             options = self._permanent_options(
                 permanent=permanent,
                 kinnan_is_active=True,
+                battlefield=tuple(permanents),
             )
 
             if options:
@@ -253,6 +257,7 @@ class KinnanActivationPlanFactory:
         *,
         permanent: Permanent,
         kinnan_is_active: bool,
+        battlefield: tuple[Permanent, ...],
     ) -> tuple[_ManaSourceOption, ...]:
         if permanent.tapped:
             return ()
@@ -266,6 +271,11 @@ class KinnanActivationPlanFactory:
         card = permanent.effective_card
         options: list[_ManaSourceOption] = []
 
+        multiplier = mana_production_multiplier(
+            source=permanent,
+            battlefield=battlefield,
+        )
+
         if card.mana_abilities:
             for ability_index, ability in enumerate(
                 card.mana_abilities
@@ -277,7 +287,7 @@ class KinnanActivationPlanFactory:
                     ability.produced_mana.items(),
                     key=lambda item: item[0].value,
                 ):
-                    amount = base_amount
+                    amount = base_amount * multiplier
 
                     if (
                         kinnan_is_active
@@ -304,7 +314,7 @@ class KinnanActivationPlanFactory:
                 _ManaSourceOption(
                     permanent=permanent,
                     mana=mana,
-                    amount=1,
+                    amount=multiplier,
                     ability_index=0,
                 )
             )

@@ -45,6 +45,9 @@ from krs.engine.battlefield_entry_engine import (
 )
 from krs.replay.replay import Replay
 from krs.replay.replay_event import ReplayEvent
+from krs.mana.mana_production import (
+    mana_production_multiplier,
+)
 
 
 class ActionExecutor:
@@ -474,14 +477,24 @@ class ActionExecutor:
 
         permanent.tapped = True
 
-        for mana, amount in produced_mana.items():
+        multiplier = mana_production_multiplier(
+            source=permanent,
+            battlefield=player.battlefield,
+        )
+
+        multiplied_mana = {
+            mana: amount * multiplier
+            for mana, amount in produced_mana.items()
+        }
+
+        for mana, amount in multiplied_mana.items():
             player.mana_pool.add(
                 mana,
                 amount,
             )
 
         amount_generated = sum(
-            produced_mana.values()
+            multiplied_mana.values()
         )
 
         additional_mana = (
